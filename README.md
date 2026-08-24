@@ -160,6 +160,41 @@ import duckai as da
 resp = da.ask("question", mock=True)
 ```
 
+## Custom API Endpoint
+
+If you need to use a different API endpoint or have a custom DuckAI deployment:
+
+```python
+import duckai as da
+
+# Use a custom endpoint
+resp = da.ask(
+    "Your question",
+    api_endpoint="https://custom-duck-ai-api.com/chat",
+    verify_ssl=True  # Set to False to skip SSL verification (not recommended)
+)
+print(resp.body)
+```
+
+## SSL Certificate Verification
+
+By default, SSL certificates are verified. To disable verification (not recommended for production):
+
+```python
+import duckai as da
+
+resp = da.ask("question", verify_ssl=False)
+```
+
+Or using the client directly:
+
+```python
+from duckai.client import DuckAIClient
+
+client = DuckAIClient(verify_ssl=False)
+response = client.ask("question")
+```
+
 ## Requirements
 
 - Python 3.8+

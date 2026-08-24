@@ -9,19 +9,29 @@ from .response import Response
 class DuckAIClient:
     """Client for querying DuckAI."""
 
-    def __init__(self, model: Optional[str] = None, timeout: int = 30, mock: bool = False):
+    def __init__(
+        self,
+        model: Optional[str] = None,
+        timeout: int = 30,
+        mock: bool = False,
+        api_endpoint: Optional[str] = None,
+        verify_ssl: bool = True
+    ):
         """
         Initialize the DuckAI client.
 
         Args:
-            model: The AI model to use (defaults to DuckAI's default)
+            model: The AI model to use (defaults to gpt-4o-mini)
             timeout: Request timeout in seconds
-            mock: If True, uses mock responses (for testing/demo without network access)
+            mock: If True, uses mock responses (for testing/demo)
+            api_endpoint: Custom API endpoint URL (defaults to https://duck.ai/api/chat)
+            verify_ssl: If False, skips SSL certificate verification (not recommended for production)
         """
         self.model = model or "gpt-4o-mini"
         self.timeout = timeout
-        self.base_url = "https://duckduckgo.com"
         self.mock_mode = mock
+        self.api_endpoint = api_endpoint or "https://duck.ai/api/chat"
+        self.verify_ssl = verify_ssl
 
     def ask(self, question: str) -> Response:
         """
@@ -80,22 +90,38 @@ class DuckAIClient:
 
         try:
             resp = requests.post(
-                f"{self.base_url}/api/chat",
+                self.api_endpoint,
                 json=payload,
                 headers=headers,
                 timeout=self.timeout,
-                stream=True
+                stream=True,
+                verify=self.verify_ssl
             )
 
             if resp.status_code == 200:
                 return self._parse_stream_response(resp)
             else:
-                error_text = resp.text or f"HTTP {resp.status_code}"
+                error_text = resp.text[:200] if resp.text else f"HTTP {resp.status_code}"
                 return Response(
                     body=f"API returned status code {resp.status_code}: {error_text}",
                     status_code=resp.status_code,
-                    raw_data={"response_text": error_text}
+                    raw_data={
+                        "response_text": error_text,
+                        "endpoint": self.api_endpoint
+                    }
                 )
+        except requests.exceptions.Timeout:
+            return Response(
+                body="Request timeout - the API took too long to respond",
+                status_code=504,
+                raw_data={"error": "timeout", "endpoint": self.api_endpoint}
+            )
+        except requests.exceptions.ConnectionError as e:
+            return Response(
+                body=f"Connection error: {str(e)}",
+                status_code=503,
+                raw_data={"error": "connection_error", "endpoint": self.api_endpoint}
+            )
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {str(e)}")
 
@@ -199,7 +225,13 @@ _default_client = DuckAIClient()
 _mock_client = DuckAIClient(mock=True)
 
 
-def ask(question: str, model: Optional[str] = None, mock: bool = False) -> Response:
+def ask(
+    question: str,
+    model: Optional[str] = None,
+    mock: bool = False,
+    api_endpoint: Optional[str] = None,
+    verify_ssl: bool = True
+) -> Response:
     """
     Ask a question to DuckAI's default model.
 
@@ -207,6 +239,8 @@ def ask(question: str, model: Optional[str] = None, mock: bool = False) -> Respo
         question: The question to ask
         model: Optional model to use (uses default if not specified)
         mock: If True, uses mock responses (for testing without network access)
+        api_endpoint: Custom API endpoint URL
+        verify_ssl: If False, skips SSL certificate verification
 
     Returns:
         Response object containing the AI's response
@@ -219,11 +253,19 @@ def ask(question: str, model: Optional[str] = None, mock: bool = False) -> Respo
         >>> # Using mock mode (for testing)
         >>> resp = da.ask("Why did the chicken cross the road?", mock=True)
         >>> print(resp.body)
+
+        >>> # Using custom endpoint
+        >>> resp = da.ask("question", api_endpoint="https://custom.api/chat")
+        >>> print(resp.body)
     """
     if mock:
         client = DuckAIClient(model=model, mock=True)
         return client.ask(question)
-    elif model:
-        client = DuckAIClient(model=model)
+    elif model or api_endpoint or not verify_ssl:
+        client = DuckAIClient(
+            model=model,
+            api_endpoint=api_endpoint,
+            verify_ssl=verify_ssl
+        )
         return client.ask(question)
     return _default_client.ask(question)
