@@ -17,11 +17,23 @@ pip install -e .
 
 ## Quick Start
 
+### Basic Usage (Requires Network Access)
+
 ```python
 import duckai as da
 
 # Ask a question using the default model
 resp = da.ask("Why did the chicken cross the road?")
+print(resp.body)
+```
+
+### Testing with Mock Mode
+
+```python
+import duckai as da
+
+# Use mock mode for testing (no network required)
+resp = da.ask("Why did the chicken cross the road?", mock=True)
 print(resp.body)
 ```
 
@@ -85,6 +97,34 @@ print(response.body)
 - Configurable timeout
 - Response metadata
 
+## Mock Mode (For Testing Without Network)
+
+The library includes a built-in mock mode for testing when network access to DuckAI is restricted:
+
+```python
+import duckai as da
+
+# Use mock mode - returns pre-defined responses
+response = da.ask("Why did the chicken cross the road?", mock=True)
+print(response.body)
+
+# Check if response is from mock
+if response.raw_data.get("mock"):
+    print("This is a mock response for testing")
+```
+
+### Supported Mock Questions
+
+Mock mode recognizes these keywords and returns relevant responses:
+- "chicken" - Classic joke about crossing the road
+- "france" - Capital city information
+- "quantum" - Quantum entanglement explanation
+- "joke" - A programming joke
+- "python" - Information about Python
+- "ai" - Artificial Intelligence explanation
+
+For other questions, mock mode returns a generic response.
+
 ## Error Handling
 
 ```python
@@ -96,6 +136,28 @@ if response.status_code != 200:
     print(f"Error: {response.body}")
 else:
     print(response.body)
+
+# Check for network restrictions
+if response.raw_data.get("network_restricted"):
+    print("Network access is restricted - use mock=True for testing")
+```
+
+## Network Restrictions
+
+Some environments (like cloud-based remote execution) may have network policies that prevent direct access to external APIs. In these cases:
+
+1. Use `mock=True` for testing and development
+2. Deploy in an environment with proper network access
+3. Check your network policy configuration
+
+```python
+import duckai as da
+
+# This will fail in restricted environments:
+# resp = da.ask("question")
+
+# This will work everywhere:
+resp = da.ask("question", mock=True)
 ```
 
 ## Requirements
