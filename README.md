@@ -160,18 +160,41 @@ import duckai as da
 resp = da.ask("question", mock=True)
 ```
 
-## Custom API Endpoint
+## Finding the Actual API Endpoint
 
-If you need to use a different API endpoint or have a custom DuckAI deployment:
+DuckAI's actual API endpoint structure is not publicly documented. To find it:
+
+### Using Browser DevTools
+
+1. Open https://duck.ai in your browser
+2. Open Developer Tools (F12)
+3. Go to Network tab
+4. Send a chat message
+5. Look for network requests to `duck.ai` or `duckduckgo.com`
+6. Note the endpoint URL and any authentication headers
+
+### Using the Diagnostic Script
+
+Run the included diagnostic script to test common endpoint patterns:
+
+```bash
+python3 test_endpoints.py
+```
+
+This will test various endpoint patterns and show which ones respond.
+
+### Using a Custom Endpoint
+
+Once you've found the correct endpoint, use it with the library:
 
 ```python
 import duckai as da
 
-# Use a custom endpoint
+# Use the endpoint you discovered
 resp = da.ask(
     "Your question",
-    api_endpoint="https://custom-duck-ai-api.com/chat",
-    verify_ssl=True  # Set to False to skip SSL verification (not recommended)
+    api_endpoint="https://duck.ai/YOUR_ACTUAL_ENDPOINT",
+    verify_ssl=True
 )
 print(resp.body)
 ```
