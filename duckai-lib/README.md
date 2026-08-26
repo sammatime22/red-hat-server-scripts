@@ -153,6 +153,45 @@ For production use, consider:
 3. Using mock mode for testing workflows
 4. Requesting API access from DuckDuckGo
 
+## Debugging and Troubleshooting
+
+### Debug Mode
+
+Enable debug mode to see detailed request and response information:
+
+```python
+import duckai as da
+
+# Enable debug logging
+response = da.ask("Your question", debug=True)
+
+# This will print detailed logs including:
+# - Request payload
+# - Response headers
+# - Error messages
+```
+
+### Increasing Timeout
+
+If requests are timing out, increase the timeout value (default is 60 seconds):
+
+```python
+import duckai as da
+
+# Increase timeout to 120 seconds
+response = da.ask("Your question", timeout=120)
+```
+
+### Using the Debug Test Script
+
+A debug test script is included to help troubleshoot issues:
+
+```bash
+python3 duckai-lib/examples/debug_test.py
+```
+
+This will show detailed debug output for a single API request.
+
 ## Error Handling
 
 ```python
