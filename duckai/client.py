@@ -33,6 +33,30 @@ class DuckAIClient:
         self.api_endpoint = api_endpoint or "https://duck.ai/duckchat/v1/chat"
         self.verify_ssl = verify_ssl
 
+        # Create a session with persistent cookies and headers
+        self.session = requests.Session()
+        self._setup_session()
+
+    def _setup_session(self):
+        """Configure session with browser-like headers."""
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Referer": "https://duck.ai/",
+            "Origin": "https://duck.ai",
+            "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"macOS"',
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "X-Requested-With": "XMLHttpRequest",
+        })
+
     def ask(self, question: str) -> Response:
         """
         Ask a question to DuckAI.
@@ -76,7 +100,6 @@ class DuckAIClient:
             Response object
         """
         headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:153.0) Gecko/20100101 Firefox/153.0",
             "Accept": "text/event-stream",
             "Content-Type": "application/json",
             "Prefer": "safe"
@@ -112,7 +135,7 @@ class DuckAIClient:
         }
 
         try:
-            resp = requests.post(
+            resp = self.session.post(
                 self.api_endpoint,
                 json=payload,
                 headers=headers,
@@ -123,6 +146,21 @@ class DuckAIClient:
 
             if resp.status_code == 200:
                 return self._parse_stream_response(resp)
+            elif resp.status_code == 418:
+                # Challenge/verification required (likely DuckDuckGo bot detection)
+                error_msg = "DuckAI detected this as automated access. Consider:"
+                error_msg += "\n- Using from a browser context"
+                error_msg += "\n- Using mock=True for testing"
+                error_msg += "\n- Adding proper authentication/session"
+                return Response(
+                    body=error_msg,
+                    status_code=418,
+                    raw_data={
+                        "error_type": "ERR_CHALLENGE",
+                        "message": "Bot challenge detected",
+                        "endpoint": self.api_endpoint
+                    }
+                )
             else:
                 error_text = resp.text[:200] if resp.text else f"HTTP {resp.status_code}"
                 return Response(

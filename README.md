@@ -111,9 +111,9 @@ print(response.body)
 - Configurable timeout
 - Response metadata
 
-## Mock Mode (For Testing Without Network)
+## Mock Mode (For Testing & Bot Detection)
 
-The library includes a built-in mock mode for testing when network access to DuckAI is restricted:
+The library includes a built-in mock mode for testing without API calls:
 
 ```python
 import duckai as da
@@ -138,6 +138,20 @@ Mock mode recognizes these keywords and returns relevant responses:
 - "ai" - Artificial Intelligence explanation
 
 For other questions, mock mode returns a generic response.
+
+### Note: Bot Detection & Browser Context
+
+DuckAI implements anti-bot measures that may block API requests from automated clients. This is expected behavior:
+
+- **Mock mode** works anywhere (recommended for testing)
+- **Browser context** may work when accessing duck.ai directly
+- **Library usage** in server scripts may trigger bot detection (HTTP 418)
+
+For production use, consider:
+1. Using the library from within a browser extension
+2. Integrating through DuckAI's official browser interface
+3. Using mock mode for testing workflows
+4. Requesting API access from DuckDuckGo
 
 ## Error Handling
 
