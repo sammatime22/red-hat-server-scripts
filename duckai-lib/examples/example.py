@@ -27,18 +27,20 @@ def ask_with_rate_limit_handling(question, mock=False, model=None, retry_delay=5
         # Fallback to mock mode
         return da.ask(question, mock=True)
 
-def main(use_mock=False, use_debug=False, timeout=60):
+def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
     """Run example queries.
 
     Args:
         use_mock: If True, uses mock responses. If False, uses real API (may rate limit).
         use_debug: If True, shows detailed debug output for troubleshooting.
         timeout: Request timeout in seconds (default: 60).
+        retry_delay: Delay between retries on 429 rate limit (default: 5).
     """
     print("=== DuckAI Library Examples ===\n")
     mode_str = "mock mode" if use_mock else "real API"
     print(f"Using: {mode_str}")
     print(f"Timeout: {timeout}s")
+    print(f"Retry Delay: {retry_delay}s")
     if use_debug:
         print("Debug: ENABLED (showing detailed request/response info)")
     if not use_mock:
@@ -51,7 +53,7 @@ def main(use_mock=False, use_debug=False, timeout=60):
     print("-" * 40)
     question = "Why did the chicken cross the road?"
     print(f"Q: {question}")
-    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug)
+    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay)
     print(f"Status: {response.status_code}")
     print(f"Is Mock: {response.raw_data.get('mock', False)}")
     print(f"A: {response.body}\n")
@@ -61,7 +63,7 @@ def main(use_mock=False, use_debug=False, timeout=60):
     print("-" * 40)
     question = "What is the capital of France?"
     print(f"Q: {question}")
-    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug)
+    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay)
     print(f"Status: {response.status_code}")
     print(f"A: {response.body}\n")
 
@@ -70,7 +72,7 @@ def main(use_mock=False, use_debug=False, timeout=60):
     print("-" * 40)
     question = "Explain quantum entanglement briefly"
     print(f"Q: {question}")
-    response = ask_with_rate_limit_handling(question, model="gpt-4", mock=use_mock, timeout=timeout, debug=use_debug)
+    response = ask_with_rate_limit_handling(question, model="gpt-4", mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay)
     print(f"Status: {response.status_code}")
     print(f"A: {response.body}\n")
 
@@ -78,7 +80,7 @@ def main(use_mock=False, use_debug=False, timeout=60):
     print("Example 4: Another Query")
     print("-" * 40)
     question = "Tell me a joke"
-    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug)
+    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay)
     if response.status_code == 200:
         print(f"Success! Response: {response.body}")
     elif response.status_code == 429:
@@ -129,11 +131,13 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 example.py              # Use real API (may rate limit)
-  python3 example.py --mock       # Use mock mode (instant, no rate limiting)
-  python3 example.py --debug      # Show detailed request/response debug info
-  python3 example.py --timeout 120  # Increase timeout to 120 seconds
-  python3 example.py --mock --debug # Mock mode with debug output
+  python3 example.py                    # Use real API (may rate limit)
+  python3 example.py --mock             # Use mock mode (instant, no rate limiting)
+  python3 example.py --debug            # Show detailed request/response debug info
+  python3 example.py --timeout 120      # Increase timeout to 120 seconds
+  python3 example.py --retry-delay 10   # Wait 10s between retries on rate limit
+  python3 example.py --mock --debug     # Mock mode with debug output
+  python3 example.py --timeout 120 --retry-delay 10  # Custom timeout and retry delay
         """
     )
     parser.add_argument(
@@ -152,6 +156,12 @@ Examples:
         default=60,
         help="Request timeout in seconds (default: 60)"
     )
+    parser.add_argument(
+        "--retry-delay",
+        type=int,
+        default=5,
+        help="Delay in seconds between retries on rate limit (default: 5)"
+    )
 
     args = parser.parse_args()
-    main(use_mock=args.mock, use_debug=args.debug, timeout=args.timeout)
+    main(use_mock=args.mock, use_debug=args.debug, timeout=args.timeout, retry_delay=args.retry_delay)
