@@ -1,5 +1,11 @@
 """Unit tests for duckai library."""
 
+import sys
+from pathlib import Path
+
+# Add parent directory to path to allow importing duckai from tests/
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import unittest
 from duckai.response import Response
 from duckai.client import DuckAIClient, ask

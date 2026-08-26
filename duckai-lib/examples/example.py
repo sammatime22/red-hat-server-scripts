@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Example usage of the duckai library with rate limit handling."""
 
+import sys
+from pathlib import Path
+
+# Add parent directory to path to allow importing duckai from examples/
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import duckai as da
 import time
 
