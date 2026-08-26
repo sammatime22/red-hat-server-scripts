@@ -21,16 +21,16 @@ class DuckAIClient:
         Initialize the DuckAI client.
 
         Args:
-            model: The AI model to use (defaults to gpt-4o-mini)
+            model: The AI model to use (defaults to claude-haiku-4-5)
             timeout: Request timeout in seconds
             mock: If True, uses mock responses (for testing/demo)
-            api_endpoint: Custom API endpoint URL (defaults to https://duck.ai/api/chat)
+            api_endpoint: Custom API endpoint URL (defaults to https://duck.ai/duckchat/v1/chat)
             verify_ssl: If False, skips SSL certificate verification (not recommended for production)
         """
-        self.model = model or "gpt-4o-mini"
+        self.model = model or "claude-haiku-4-5"
         self.timeout = timeout
         self.mock_mode = mock
-        self.api_endpoint = api_endpoint or "https://duck.ai/api/chat"
+        self.api_endpoint = api_endpoint or "https://duck.ai/duckchat/v1/chat"
         self.verify_ssl = verify_ssl
 
     def ask(self, question: str) -> Response:
@@ -76,16 +76,39 @@ class DuckAIClient:
             Response object
         """
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:153.0) Gecko/20100101 Firefox/153.0",
             "Accept": "text/event-stream",
             "Content-Type": "application/json",
+            "Prefer": "safe"
         }
 
         payload = {
             "model": self.model,
+            "metadata": {
+                "toolChoice": {
+                    "NewsSearch": False,
+                    "VideosSearch": False,
+                    "LocalSearch": False,
+                    "WeatherForecast": False
+                }
+            },
             "messages": [
                 {"role": "user", "content": question}
-            ]
+            ],
+            "canUseTools": True,
+            "reasoningEffort": "low",
+            "canUseApproxLocation": None,
+            "canDelegateImageGeneration": None,
+            "durableStream": {
+                "messageId": self._generate_uuid(),
+                "conversationId": self._generate_uuid(),
+                "publicKey": {
+                    "alg": "RSA-OAEP-256",
+                    "ext": True,
+                    "key_ops": ["encrypt"],
+                    "kty": "RSA"
+                }
+            }
         }
 
         try:
@@ -127,7 +150,8 @@ class DuckAIClient:
 
     def _parse_stream_response(self, response: requests.Response) -> Response:
         """
-        Parse a streaming response from DuckAI.
+        Parse a streaming response from DuckAI's /duckchat/v1/chat endpoint.
+        Uses Server-Sent Events (SSE) format.
 
         Args:
             response: The streaming response object
@@ -136,6 +160,7 @@ class DuckAIClient:
             Response object with accumulated message
         """
         message_content = ""
+        chat_title = ""
 
         try:
             for line in response.iter_lines():
@@ -147,26 +172,34 @@ class DuckAIClient:
                 # Handle Server-Sent Events (SSE) format
                 if line_str.startswith('data: '):
                     data_str = line_str[6:]  # Remove 'data: ' prefix
+
+                    # Handle end marker
                     if data_str == '[DONE]':
                         break
+
+                    # Handle chat title marker
+                    if data_str.startswith('[CHAT_TITLE:'):
+                        chat_title = data_str[12:-1]  # Extract title between brackets
+                        continue
 
                     try:
                         data = json.loads(data_str)
                         if isinstance(data, dict):
-                            # Handle different response formats
-                            if 'message' in data:
+                            # Extract message content from assistant response
+                            if data.get('role') == 'assistant' and 'message' in data:
                                 message_content += data['message']
-                            elif 'choices' in data and len(data['choices']) > 0:
-                                delta = data['choices'][0].get('delta', {})
-                                if 'content' in delta:
-                                    message_content += delta['content']
                     except json.JSONDecodeError:
+                        # Silently skip non-JSON SSE data
                         pass
 
             return Response(
                 body=message_content or "No response received",
                 status_code=200,
-                raw_data={"streaming": True}
+                raw_data={
+                    "streaming": True,
+                    "chat_title": chat_title,
+                    "model": self.model
+                }
             )
         except Exception as e:
             return Response(
@@ -174,6 +207,11 @@ class DuckAIClient:
                 status_code=500,
                 raw_data={"error": str(e)}
             )
+
+    def _generate_uuid(self) -> str:
+        """Generate a UUID-like string for DuckAI requests."""
+        import uuid
+        return str(uuid.uuid4())
 
     def _get_mock_response(self, question: str) -> Response:
         """

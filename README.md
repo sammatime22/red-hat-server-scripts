@@ -17,12 +17,14 @@ pip install -e .
 
 ## Quick Start
 
-### Basic Usage (Requires Network Access)
+### Basic Usage with Real DuckAI API
+
+The library now uses the actual DuckAI endpoint: `https://duck.ai/duckchat/v1/chat`
 
 ```python
 import duckai as da
 
-# Ask a question using the default model
+# Ask a question using the default model (Claude Haiku 4.5)
 resp = da.ask("Why did the chicken cross the road?")
 print(resp.body)
 ```
@@ -35,6 +37,18 @@ import duckai as da
 # Use mock mode for testing (no network required)
 resp = da.ask("Why did the chicken cross the road?", mock=True)
 print(resp.body)
+```
+
+### Supported Models
+
+The library works with any model available on duck.ai, including:
+- `claude-haiku-4-5` (default)
+- `gpt-4o-mini`
+- And other models available on the platform
+
+```python
+# Use a specific model
+resp = da.ask("Your question", model="gpt-4o-mini")
 ```
 
 ## Usage
@@ -160,42 +174,52 @@ import duckai as da
 resp = da.ask("question", mock=True)
 ```
 
-## Finding the Actual API Endpoint
+## API Endpoint Details
 
-DuckAI's actual API endpoint structure is not publicly documented. To find it:
+### Actual Endpoint (Discovered)
 
-### Using Browser DevTools
+The library uses DuckAI's actual API endpoint:
 
-1. Open https://duck.ai in your browser
-2. Open Developer Tools (F12)
-3. Go to Network tab
-4. Send a chat message
-5. Look for network requests to `duck.ai` or `duckduckgo.com`
-6. Note the endpoint URL and any authentication headers
+**Endpoint:** `https://duck.ai/duckchat/v1/chat`
+**Method:** `POST`
+**Response Type:** Server-Sent Events (SSE) with text/event-stream content type
 
-### Using the Diagnostic Script
-
-Run the included diagnostic script to test common endpoint patterns:
-
-```bash
-python3 test_endpoints.py
-```
-
-This will test various endpoint patterns and show which ones respond.
+The library automatically handles:
+- Message streaming via SSE format
+- UUID generation for session management
+- Tool choice configuration
+- Reasoning effort settings
+- Response parsing and accumulation
 
 ### Using a Custom Endpoint
 
-Once you've found the correct endpoint, use it with the library:
+If you need to use a different endpoint:
 
 ```python
 import duckai as da
 
-# Use the endpoint you discovered
+# Use a custom endpoint
 resp = da.ask(
     "Your question",
-    api_endpoint="https://duck.ai/YOUR_ACTUAL_ENDPOINT",
+    api_endpoint="https://custom.endpoint/api/chat",
     verify_ssl=True
 )
+print(resp.body)
+```
+
+### Advanced Configuration
+
+```python
+from duckai.client import DuckAIClient
+
+client = DuckAIClient(
+    model="gpt-4o-mini",
+    api_endpoint="https://duck.ai/duckchat/v1/chat",
+    timeout=60,
+    verify_ssl=True
+)
+
+resp = client.ask("Your question")
 print(resp.body)
 ```
 
