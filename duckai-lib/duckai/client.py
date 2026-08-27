@@ -67,6 +67,8 @@ class DuckAIClient:
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
             "X-Requested-With": "XMLHttpRequest",
+            # Additional DuckAI-specific headers based on browser capture
+            "X-DuckDuckGo-Version": "1",
         })
 
     def ask(self, question: str) -> Response:
@@ -149,7 +151,9 @@ class DuckAIClient:
         if self.debug:
             logger.debug(f"Query: {question}")
             logger.debug(f"Endpoint: {self.api_endpoint}")
-            logger.debug(f"Headers: {json.dumps({k: v for k, v in headers.items() if k != 'Authorization'}, indent=2)}")
+            # Show all headers including session headers
+            all_headers = {**self.session.headers, **headers}
+            logger.debug(f"All Headers: {json.dumps({k: v for k, v in all_headers.items() if k != 'Authorization'}, indent=2)}")
             logger.debug(f"Payload: {json.dumps(payload, indent=2, default=str)}")
 
         try:
@@ -184,14 +188,21 @@ class DuckAIClient:
                     }
                 )
             else:
-                error_text = resp.text[:500] if resp.text else f"HTTP {resp.status_code}"
+                error_text = resp.text if resp.text else f"HTTP {resp.status_code}"
                 if self.debug:
-                    logger.debug(f"Error Response: {error_text}")
+                    logger.debug(f"Error Response (full): {error_text}")
+                    logger.debug(f"Error Status: {resp.status_code}")
+                    try:
+                        error_json = resp.json()
+                        logger.debug(f"Error JSON: {json.dumps(error_json, indent=2)}")
+                    except:
+                        pass
                 return Response(
-                    body=f"API returned status code {resp.status_code}: {error_text}",
+                    body=f"API returned status code {resp.status_code}: {error_text[:500]}",
                     status_code=resp.status_code,
                     raw_data={
-                        "response_text": error_text,
+                        "response_text": error_text[:500],
+                        "full_response": error_text,
                         "endpoint": self.api_endpoint
                     }
                 )
