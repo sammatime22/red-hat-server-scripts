@@ -293,6 +293,25 @@ class DuckAIClient:
             dict with 'e' (exponent) and 'n' (modulus) in base64url format
         """
         try:
+            # Try to find openssl in common locations
+            openssl_path = None
+            for path in ["/usr/bin/openssl", "/bin/openssl", "openssl"]:
+                try:
+                    result = subprocess.run(
+                        [path, "version"],
+                        capture_output=True,
+                        text=True,
+                        timeout=1
+                    )
+                    if result.returncode == 0:
+                        openssl_path = path
+                        break
+                except (FileNotFoundError, subprocess.TimeoutExpired):
+                    continue
+
+            if not openssl_path:
+                raise FileNotFoundError("openssl not found in system PATH")
+
             # Create temporary directory for keys
             with tempfile.TemporaryDirectory() as tmpdir:
                 key_path = os.path.join(tmpdir, "key.pem")
@@ -300,7 +319,7 @@ class DuckAIClient:
 
                 # Generate private key using openssl
                 subprocess.run(
-                    ["openssl", "genrsa", "-out", key_path, "2048"],
+                    [openssl_path, "genrsa", "-out", key_path, "2048"],
                     check=True,
                     capture_output=True,
                     text=True
@@ -308,7 +327,7 @@ class DuckAIClient:
 
                 # Extract public key
                 subprocess.run(
-                    ["openssl", "rsa", "-in", key_path, "-pubout", "-out", pubkey_path],
+                    [openssl_path, "rsa", "-in", key_path, "-pubout", "-out", pubkey_path],
                     check=True,
                     capture_output=True,
                     text=True
@@ -316,7 +335,7 @@ class DuckAIClient:
 
                 # Extract modulus and exponent from public key
                 result = subprocess.run(
-                    ["openssl", "rsa", "-pubin", "-in", pubkey_path, "-text", "-noout"],
+                    [openssl_path, "rsa", "-pubin", "-in", pubkey_path, "-text", "-noout"],
                     check=True,
                     capture_output=True,
                     text=True
