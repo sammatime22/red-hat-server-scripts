@@ -311,12 +311,16 @@ class DuckAIClient:
                 key_path = os.path.join(tmpdir, "key.pem")
                 pubkey_path = os.path.join(tmpdir, "pubkey.pem")
 
+                # Pass environment explicitly to ensure PATH is available
+                env = os.environ.copy()
+
                 # Generate private key using openssl
                 subprocess.run(
                     [openssl_path, "genrsa", "-out", key_path, "2048"],
                     check=True,
                     capture_output=True,
-                    text=True
+                    text=True,
+                    env=env
                 )
 
                 # Extract public key
@@ -324,7 +328,8 @@ class DuckAIClient:
                     [openssl_path, "rsa", "-in", key_path, "-pubout", "-out", pubkey_path],
                     check=True,
                     capture_output=True,
-                    text=True
+                    text=True,
+                    env=env
                 )
 
                 # Extract modulus and exponent from public key
@@ -332,7 +337,8 @@ class DuckAIClient:
                     [openssl_path, "rsa", "-pubin", "-in", pubkey_path, "-text", "-noout"],
                     check=True,
                     capture_output=True,
-                    text=True
+                    text=True,
+                    env=env
                 )
 
                 output = result.stdout
