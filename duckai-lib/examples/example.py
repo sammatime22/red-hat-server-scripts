@@ -11,15 +11,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import duckai as da
 import time
 
-def ask_with_rate_limit_handling(question, mock=False, model=None, retry_delay=5, timeout=60, debug=False):
+def ask_with_rate_limit_handling(question, mock=False, model=None, retry_delay=5, timeout=60, debug=False, token_refresh_delay=0):
     """Ask a question with automatic rate limit handling."""
     try:
-        response = da.ask(question, mock=mock, model=model, timeout=timeout, debug=debug)
+        response = da.ask(question, mock=mock, model=model, timeout=timeout, debug=debug, token_refresh_delay=token_refresh_delay)
 
         if response.status_code == 429:
             print(f"⚠️  Rate limited. Waiting {retry_delay}s before retry...")
             time.sleep(retry_delay)
-            return da.ask(question, mock=mock, model=model, timeout=timeout, debug=debug)
+            return da.ask(question, mock=mock, model=model, timeout=timeout, debug=debug, token_refresh_delay=token_refresh_delay)
 
         return response
     except Exception as e:
@@ -27,7 +27,7 @@ def ask_with_rate_limit_handling(question, mock=False, model=None, retry_delay=5
         # Fallback to mock mode
         return da.ask(question, mock=True)
 
-def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
+def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5, token_refresh_delay=0):
     """Run example queries.
 
     Args:
@@ -35,12 +35,15 @@ def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
         use_debug: If True, shows detailed debug output for troubleshooting.
         timeout: Request timeout in seconds (default: 60).
         retry_delay: Delay between retries on 429 rate limit (default: 5).
+        token_refresh_delay: Delay after token refresh before allowing requests (default: 0).
     """
     print("=== DuckAI Library Examples ===\n")
     mode_str = "mock mode" if use_mock else "real API"
     print(f"Using: {mode_str}")
     print(f"Timeout: {timeout}s")
     print(f"Retry Delay: {retry_delay}s")
+    if token_refresh_delay > 0:
+        print(f"Token Refresh Delay: {token_refresh_delay}s")
     if use_debug:
         print("Debug: ENABLED (showing detailed request/response info)")
     if not use_mock:
@@ -53,7 +56,7 @@ def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
     print("-" * 40)
     question = "Why did the chicken cross the road?"
     print(f"Q: {question}")
-    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay)
+    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay, token_refresh_delay=token_refresh_delay)
     print(f"Status: {response.status_code}")
     print(f"Is Mock: {response.raw_data.get('mock', False)}")
     print(f"A: {response.body}\n")
@@ -63,7 +66,7 @@ def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
     print("-" * 40)
     question = "What is the capital of France?"
     print(f"Q: {question}")
-    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay)
+    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay, token_refresh_delay=token_refresh_delay)
     print(f"Status: {response.status_code}")
     print(f"A: {response.body}\n")
 
@@ -72,7 +75,7 @@ def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
     print("-" * 40)
     question = "Explain quantum entanglement briefly"
     print(f"Q: {question}")
-    response = ask_with_rate_limit_handling(question, model="gpt-4", mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay)
+    response = ask_with_rate_limit_handling(question, model="gpt-4", mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay, token_refresh_delay=token_refresh_delay)
     print(f"Status: {response.status_code}")
     print(f"A: {response.body}\n")
 
@@ -80,7 +83,7 @@ def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
     print("Example 4: Another Query")
     print("-" * 40)
     question = "Tell me a joke"
-    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay)
+    response = ask_with_rate_limit_handling(question, mock=use_mock, timeout=timeout, debug=use_debug, retry_delay=retry_delay, token_refresh_delay=token_refresh_delay)
     if response.status_code == 200:
         print(f"Success! Response: {response.body}")
     elif response.status_code == 429:
@@ -106,11 +109,47 @@ def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
     print(f"Is mock response? {is_mock}")
     print(f"Response: {response.body}")
 
-    # Example 7: Best practices
-    print("\n\nExample 7: Best Practices")
+    # Example 7: Using token_refresh_delay to avoid rate limits
+    print("Example 7: Using Token Refresh Delay")
+    print("-" * 40)
+    print("The token_refresh_delay parameter adds a wait period after token")
+    print("retrieval (during client initialization) before requests can be made.")
+    print("This can help avoid immediate rate limiting on first request.\n")
+    if not use_mock:
+        print("Creating client with 3 second token refresh delay...")
+        client = da.DuckAIClient(token_refresh_delay=3, debug=use_debug)
+        print("✓ Client initialized and token refresh delay applied")
+        print("  (Now safe to call client.ask() without immediate rate limiting)")
+        print("  In practice, you would call: response = client.ask('question')\n")
+    else:
+        print("(Skipping in mock mode - use --mock with token_refresh_delay to test)\n")
+
+    # Example 8: Manual token refresh
+    print("Example 8: Manual Token Refresh")
+    print("-" * 40)
+    print("Use the refresh_token() method to manually get a fresh auth token.")
+    print("This is useful if you want to reset rate limit counters between requests.\n")
+    if not use_mock:
+        print("Creating client...")
+        client = da.DuckAIClient(debug=use_debug)
+        print("✓ Client initialized with initial token")
+        print("\nManually refreshing token...")
+        success = client.refresh_token()
+        if success:
+            print("✓ Token refreshed successfully")
+            print("  Ready to make another API call: response = client.ask('question')\n")
+        else:
+            print("✗ Token refresh failed (may be network issue)\n")
+    else:
+        print("(In mock mode - manual refresh returns True immediately)\n")
+
+    # Example 9: Best practices
+    print("Example 9: Best Practices")
     print("-" * 40)
     print("✓ Use --mock flag to avoid rate limiting during development")
     print("✓ Add delays between real API calls (5+ seconds recommended)")
+    print("✓ Use token_refresh_delay parameter for automatic delay on init")
+    print("✓ Call refresh_token() manually between requests if needed")
     print("✓ Implement exponential backoff for retries")
     print("✓ Handle 429 errors gracefully")
     print("✓ Check response.status_code before using response.body")
@@ -121,7 +160,9 @@ def main(use_mock=False, use_debug=False, timeout=60, retry_delay=5):
     print("-" * 40)
     print("# Use mock mode (no rate limiting, instant responses):")
     print("python3 example.py --mock\n")
-    print("# Use real API (will hit rate limits):")
+    print("# Use real API with token refresh delay (helps avoid rate limits):")
+    print("python3 example.py --token-refresh-delay 3\n")
+    print("# Use real API (will hit rate limits without delay):")
     print("python3 example.py\n")
 
 
@@ -136,8 +177,9 @@ Examples:
   python3 example.py --debug            # Show detailed request/response debug info
   python3 example.py --timeout 120      # Increase timeout to 120 seconds
   python3 example.py --retry-delay 10   # Wait 10s between retries on rate limit
+  python3 example.py --token-refresh-delay 5  # Wait 5s after token refresh
   python3 example.py --mock --debug     # Mock mode with debug output
-  python3 example.py --timeout 120 --retry-delay 10  # Custom timeout and retry delay
+  python3 example.py --token-refresh-delay 3 --timeout 120  # Custom delays
         """
     )
     parser.add_argument(
@@ -162,6 +204,12 @@ Examples:
         default=5,
         help="Delay in seconds between retries on rate limit (default: 5)"
     )
+    parser.add_argument(
+        "--token-refresh-delay",
+        type=int,
+        default=0,
+        help="Delay in seconds after token refresh before allowing requests (default: 0)"
+    )
 
     args = parser.parse_args()
-    main(use_mock=args.mock, use_debug=args.debug, timeout=args.timeout, retry_delay=args.retry_delay)
+    main(use_mock=args.mock, use_debug=args.debug, timeout=args.timeout, retry_delay=args.retry_delay, token_refresh_delay=args.token_refresh_delay)

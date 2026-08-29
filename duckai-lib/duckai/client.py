@@ -27,7 +27,8 @@ class DuckAIClient:
         mock: bool = False,
         api_endpoint: Optional[str] = None,
         verify_ssl: bool = True,
-        debug: bool = False
+        debug: bool = False,
+        token_refresh_delay: int = 0
     ):
         """
         Initialize the DuckAI client.
@@ -39,6 +40,12 @@ class DuckAIClient:
             api_endpoint: Custom API endpoint URL (defaults to https://duck.ai/duckchat/v1/chat)
             verify_ssl: If False, skips SSL certificate verification (not recommended for production)
             debug: If True, logs detailed request/response information for troubleshooting
+            token_refresh_delay: Seconds to wait after token refresh before allowing requests (defaults to 0)
+
+        Note:
+            When not in mock mode, the client automatically retrieves an auth token during initialization.
+            This happens in the __init__ method before ask() can be called. Use token_refresh_delay to
+            add a wait period between token retrieval and when ask() can be used, to help avoid rate limits.
         """
         self.model = model or "claude-haiku-4-5"
         self.timeout = timeout
@@ -46,6 +53,7 @@ class DuckAIClient:
         self.api_endpoint = api_endpoint or "https://duck.ai/duckchat/v1/chat"
         self.verify_ssl = verify_ssl
         self.debug = debug
+        self.token_refresh_delay = token_refresh_delay
         self._vqd_hash = None  # Store the current Vqd-Hash-1 for subsequent requests
 
         if self.debug:
@@ -94,10 +102,57 @@ class DuckAIClient:
                 self._vqd_hash = resp.headers["x-vqd-hash-1"]
                 if self.debug:
                     logger.debug(f"Got initial X-Vqd-Hash-1: {self._vqd_hash[:50]}...")
+
+            # Apply token refresh delay if configured
+            if self.token_refresh_delay > 0:
+                if self.debug:
+                    logger.debug(f"Waiting {self.token_refresh_delay}s after token refresh...")
+                time.sleep(self.token_refresh_delay)
         except Exception as e:
             if self.debug:
                 logger.debug(f"Failed to initialize session: {e}")
             # Don't fail if initialization doesn't work, continue anyway
+
+    def refresh_token(self) -> bool:
+        """
+        Manually refresh the authentication token.
+
+        This can be useful to reset the rate limit window or to get a fresh token
+        before making a new request. The token is automatically refreshed during
+        client initialization, but this method allows manual refresh if needed.
+
+        Returns:
+            True if token refresh was successful, False otherwise
+        """
+        if self.mock_mode:
+            if self.debug:
+                logger.debug("Token refresh skipped in mock mode")
+            return True
+
+        try:
+            if self.debug:
+                logger.debug("Refreshing authentication token...")
+
+            auth_url = self.api_endpoint.replace("/chat", "/auth/token")
+            resp = self.session.get(auth_url, timeout=self.timeout, verify=self.verify_ssl)
+
+            # Extract Vqd-Hash from response headers
+            if "x-vqd-hash-1" in resp.headers:
+                self._vqd_hash = resp.headers["x-vqd-hash-1"]
+                if self.debug:
+                    logger.debug(f"Token refreshed successfully")
+
+            # Apply token refresh delay if configured
+            if self.token_refresh_delay > 0:
+                if self.debug:
+                    logger.debug(f"Waiting {self.token_refresh_delay}s after token refresh...")
+                time.sleep(self.token_refresh_delay)
+
+            return True
+        except Exception as e:
+            if self.debug:
+                logger.debug(f"Failed to refresh token: {e}")
+            return False
 
     def _generate_dynamic_headers(self) -> dict:
         """Generate dynamic headers that change per request."""
@@ -536,7 +591,8 @@ def ask(
     api_endpoint: Optional[str] = None,
     verify_ssl: bool = True,
     timeout: int = 60,
-    debug: bool = False
+    debug: bool = False,
+    token_refresh_delay: int = 0
 ) -> Response:
     """
     Ask a question to DuckAI's default model.
@@ -549,6 +605,7 @@ def ask(
         verify_ssl: If False, skips SSL certificate verification
         timeout: Request timeout in seconds (default: 60)
         debug: If True, logs detailed request/response info for troubleshooting
+        token_refresh_delay: Seconds to wait after token refresh before allowing requests (default: 0)
 
     Returns:
         Response object containing the AI's response
@@ -569,17 +626,22 @@ def ask(
         >>> # Using custom endpoint
         >>> resp = da.ask("question", api_endpoint="https://custom.api/chat")
         >>> print(resp.body)
+
+        >>> # Using token refresh delay (to avoid rate limits)
+        >>> resp = da.ask("question", token_refresh_delay=5)
+        >>> print(resp.body)
     """
     if mock:
         client = DuckAIClient(model=model, mock=True, debug=debug)
         return client.ask(question)
-    elif model or api_endpoint or not verify_ssl or timeout != 60 or debug:
+    elif model or api_endpoint or not verify_ssl or timeout != 60 or debug or token_refresh_delay != 0:
         client = DuckAIClient(
             model=model,
             api_endpoint=api_endpoint,
             verify_ssl=verify_ssl,
             timeout=timeout,
-            debug=debug
+            debug=debug,
+            token_refresh_delay=token_refresh_delay
         )
         return client.ask(question)
     return _default_client.ask(question)
