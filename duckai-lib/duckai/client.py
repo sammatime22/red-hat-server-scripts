@@ -237,6 +237,18 @@ class DuckAIClient:
 
             if resp.status_code == 200:
                 return self._parse_stream_response(resp)
+            elif resp.status_code == 429:
+                # Rate limited - this is actually good (means request was valid)
+                error_msg = "Rate limited by DuckAI. Please wait before making another request."
+                return Response(
+                    body=error_msg,
+                    status_code=429,
+                    raw_data={
+                        "error_type": "ERR_RATE_LIMIT",
+                        "message": "Too many requests",
+                        "endpoint": self.api_endpoint
+                    }
+                )
             elif resp.status_code == 418:
                 # Challenge/verification required (likely DuckDuckGo bot detection)
                 error_msg = "DuckAI detected this as automated access. Consider:"
