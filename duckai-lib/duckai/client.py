@@ -5,6 +5,10 @@ import requests
 import logging
 from typing import Optional
 from .response import Response
+import base64
+import subprocess
+import tempfile
+import os
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -139,12 +143,7 @@ class DuckAIClient:
             "durableStream": {
                 "messageId": self._generate_uuid(),
                 "conversationId": self._generate_uuid(),
-                "publicKey": {
-                    "alg": "RSA-OAEP-256",
-                    "ext": True,
-                    "key_ops": ["encrypt"],
-                    "kty": "RSA"
-                }
+                "publicKey": self._generate_rsa_public_key()
             }
         }
 
@@ -285,6 +284,104 @@ class DuckAIClient:
         """Generate a UUID-like string for DuckAI requests."""
         import uuid
         return str(uuid.uuid4())
+
+    def _generate_rsa_public_key(self) -> dict:
+        """
+        Generate an RSA key pair and extract public key components using openssl.
+
+        Returns:
+            dict with 'e' (exponent) and 'n' (modulus) in base64url format
+        """
+        try:
+            # Create temporary directory for keys
+            with tempfile.TemporaryDirectory() as tmpdir:
+                key_path = os.path.join(tmpdir, "key.pem")
+                pubkey_path = os.path.join(tmpdir, "pubkey.pem")
+
+                # Generate private key using openssl
+                subprocess.run(
+                    ["openssl", "genrsa", "-out", key_path, "2048"],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+
+                # Extract public key
+                subprocess.run(
+                    ["openssl", "rsa", "-in", key_path, "-pubout", "-out", pubkey_path],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+
+                # Extract modulus and exponent from public key
+                result = subprocess.run(
+                    ["openssl", "rsa", "-pubin", "-in", pubkey_path, "-text", "-noout"],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+
+                output = result.stdout
+
+                # Parse modulus (n) - it's hex encoded in the output
+                n_hex = ""
+                in_modulus = False
+                for line in output.split('\n'):
+                    if 'modulus:' in line.lower():
+                        in_modulus = True
+                        continue
+                    if in_modulus:
+                        if line.strip().startswith(('publicExponent:', 'Exponent:')):
+                            break
+                        # Remove colons and whitespace
+                        hex_part = line.strip().replace(':', '').replace(' ', '')
+                        if hex_part:
+                            n_hex += hex_part
+
+                # Parse exponent (e)
+                e_value = None
+                for line in output.split('\n'):
+                    if 'exponent' in line.lower() or 'Exponent' in line:
+                        # Extract the number (typically 65537)
+                        parts = line.split()
+                        for part in parts:
+                            try:
+                                e_value = int(part)
+                                break
+                            except ValueError:
+                                pass
+
+                if not e_value:
+                    e_value = 65537  # Default RSA exponent
+
+                # Convert hex modulus to base64url
+                if n_hex:
+                    n_bytes = bytes.fromhex(n_hex)
+                    n_b64 = base64.urlsafe_b64encode(n_bytes).decode('utf-8').rstrip('=')
+                else:
+                    raise ValueError("Could not extract modulus from openssl output")
+
+                # Convert exponent to base64url
+                e_bytes = e_value.to_bytes(
+                    (e_value.bit_length() + 7) // 8, byteorder='big'
+                )
+                e_b64 = base64.urlsafe_b64encode(e_bytes).decode('utf-8').rstrip('=')
+
+                return {
+                    "e": e_b64,
+                    "n": n_b64,
+                    "use": "enc"
+                }
+        except Exception as e:
+            logger.error(f"Failed to generate RSA public key: {e}")
+            # Fallback: return a reasonable default structure
+            # Note: This will likely result in 400 error from API, but prevents crashes
+            return {
+                "alg": "RSA-OAEP-256",
+                "kty": "RSA",
+                "use": "enc"
+            }
 
     def _get_mock_response(self, question: str) -> Response:
         """
