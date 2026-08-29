@@ -9,6 +9,7 @@ import base64
 import subprocess
 import tempfile
 import os
+import shutil
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -293,24 +294,17 @@ class DuckAIClient:
             dict with 'e' (exponent) and 'n' (modulus) in base64url format
         """
         try:
-            # Try to find openssl in common locations
-            openssl_path = None
-            for path in ["/usr/bin/openssl", "/bin/openssl", "openssl"]:
-                try:
-                    result = subprocess.run(
-                        [path, "version"],
-                        capture_output=True,
-                        text=True,
-                        timeout=1
-                    )
-                    if result.returncode == 0:
+            # Try to find openssl using shutil.which() which properly searches PATH
+            openssl_path = shutil.which("openssl")
+            if not openssl_path:
+                # Fallback to common locations
+                for path in ["/usr/bin/openssl", "/bin/openssl", "/usr/local/bin/openssl"]:
+                    if os.path.exists(path):
                         openssl_path = path
                         break
-                except (FileNotFoundError, subprocess.TimeoutExpired):
-                    continue
 
             if not openssl_path:
-                raise FileNotFoundError("openssl not found in system PATH")
+                raise FileNotFoundError("openssl not found in system PATH or common locations")
 
             # Create temporary directory for keys
             with tempfile.TemporaryDirectory() as tmpdir:
