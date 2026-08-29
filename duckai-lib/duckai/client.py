@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import os
 import shutil
+import uuid
+import time
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -72,9 +74,35 @@ class DuckAIClient:
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
             "X-Requested-With": "XMLHttpRequest",
-            # Additional DuckAI-specific headers based on browser capture
             "X-DuckDuckGo-Version": "1",
         })
+
+    def _generate_dynamic_headers(self) -> dict:
+        """Generate dynamic headers that change per request."""
+        # Generate journey ID (persistent for session)
+        if not hasattr(self, '_journey_id'):
+            self._journey_id = uuid.uuid4().hex[:32]
+
+        # Generate x-fe-signals (base64-encoded JSON with timing data)
+        start_time = int(time.time() * 1000)
+        signals = {
+            "start": start_time,
+            "events": [
+                {"name": "startNewChat_free", "delta": 120},
+                {"name": "action", "delta": 1570, "trusted": True}
+            ],
+            "end": 3946
+        }
+        x_fe_signals = base64.b64encode(
+            json.dumps(signals).encode()
+        ).decode()
+
+        return {
+            "x-fe-version": "serp_20260829_000000_ET-5f1234567890abcdef1234567890abcd",
+            "x-fe-signals": x_fe_signals,
+            "x-ddg-journey-id": self._journey_id,
+            "X-Vqd-Hash-1": "unknown"
+        }
 
     def ask(self, question: str) -> Response:
         """
@@ -123,6 +151,8 @@ class DuckAIClient:
             "Content-Type": "application/json",
             "Prefer": "safe"
         }
+        # Add dynamic headers for this request
+        headers.update(self._generate_dynamic_headers())
 
         payload = {
             "model": self.model,
