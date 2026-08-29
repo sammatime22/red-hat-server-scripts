@@ -46,6 +46,7 @@ class DuckAIClient:
         self.api_endpoint = api_endpoint or "https://duck.ai/duckchat/v1/chat"
         self.verify_ssl = verify_ssl
         self.debug = debug
+        self._vqd_hash = None  # Store the current Vqd-Hash-1 for subsequent requests
 
         if self.debug:
             logging.basicConfig(level=logging.DEBUG)
@@ -55,6 +56,10 @@ class DuckAIClient:
         # Create a session with persistent cookies and headers
         self.session = requests.Session()
         self._setup_session()
+
+        # Get initial auth token and Vqd-Hash
+        if not self.mock_mode:
+            self._initialize_session()
 
     def _setup_session(self):
         """Configure session with browser-like headers."""
@@ -77,6 +82,23 @@ class DuckAIClient:
             "X-DuckDuckGo-Version": "1",
         })
 
+    def _initialize_session(self):
+        """Initialize session by getting auth token and initial Vqd-Hash."""
+        try:
+            # Call auth/token endpoint to get initial session
+            auth_url = self.api_endpoint.replace("/chat", "/auth/token")
+            resp = self.session.get(auth_url, timeout=self.timeout, verify=self.verify_ssl)
+
+            # Extract Vqd-Hash from response headers for use in future requests
+            if "x-vqd-hash-1" in resp.headers:
+                self._vqd_hash = resp.headers["x-vqd-hash-1"]
+                if self.debug:
+                    logger.debug(f"Got initial X-Vqd-Hash-1: {self._vqd_hash[:50]}...")
+        except Exception as e:
+            if self.debug:
+                logger.debug(f"Failed to initialize session: {e}")
+            # Don't fail if initialization doesn't work, continue anyway
+
     def _generate_dynamic_headers(self) -> dict:
         """Generate dynamic headers that change per request."""
         # Generate journey ID (persistent for session)
@@ -88,21 +110,28 @@ class DuckAIClient:
         signals = {
             "start": start_time,
             "events": [
-                {"name": "startNewChat_free", "delta": 120},
-                {"name": "action", "delta": 1570, "trusted": True}
+                {"name": "startNewChat_free", "delta": 80},
+                {"name": "action", "delta": 670952, "trusted": True}
             ],
-            "end": 3946
+            "end": 671962
         }
         x_fe_signals = base64.b64encode(
             json.dumps(signals).encode()
         ).decode()
 
-        return {
-            "x-fe-version": "serp_20260829_000000_ET-5f1234567890abcdef1234567890abcd",
+        headers = {
+            "x-fe-version": "serp_20260828_152654_ET-41515a9327d5511bd1d4d6f06d3c3bfe4f03bc62",
             "x-fe-signals": x_fe_signals,
             "x-ddg-journey-id": self._journey_id,
-            "X-Vqd-Hash-1": "unknown"
         }
+
+        # Use the stored Vqd-Hash if available
+        if self._vqd_hash:
+            headers["X-Vqd-Hash-1"] = self._vqd_hash
+        else:
+            headers["X-Vqd-Hash-1"] = "unknown"
+
+        return headers
 
     def ask(self, question: str) -> Response:
         """
@@ -199,6 +228,12 @@ class DuckAIClient:
             if self.debug:
                 logger.debug(f"Response Status: {resp.status_code}")
                 logger.debug(f"Response Headers: {json.dumps(dict(resp.headers), indent=2, default=str)}")
+
+            # Extract and store X-Vqd-Hash-1 for next request
+            if "x-vqd-hash-1" in resp.headers:
+                self._vqd_hash = resp.headers["x-vqd-hash-1"]
+                if self.debug:
+                    logger.debug(f"Updated X-Vqd-Hash-1 for next request")
 
             if resp.status_code == 200:
                 return self._parse_stream_response(resp)
