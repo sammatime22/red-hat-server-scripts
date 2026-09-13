@@ -51,6 +51,9 @@ Now featuring all 8 types instead of just 3:
 - **Type Effectiveness**: Full type matchup chart with all 8 types
 - **Guild Master Battles**: Specialized battles against story trainers
 - **Battle Dialogue**: Narrative context for each battle
+- **Pokemon Switching**: Switch to another team member when your Pokemon faints
+- **Team-Based Strategy**: Use your full team strategically across the battle
+- **Battle Continuation**: Game continues until all team Pokemon are defeated
 
 ### Enhanced Dialogue
 - **Character Personalities**: Each NPC has unique dialogue and personality
@@ -145,6 +148,22 @@ python3 pokemon_cli_game_expanded.py
 - Pokemon gain experience through battles
 - View HP bars for each Pokemon
 - Replace fainted Pokemon before guild battles
+
+### Pokemon Switching During Battle
+
+When your active Pokemon faints during battle:
+1. You'll be prompted to choose your next Pokemon from your team
+2. Select from any non-fainted team members with visual HP bars
+3. Your newly selected Pokemon enters the battle
+4. The battle continues until all your Pokemon are defeated
+5. Choose "0" (forfeit) to end the battle early if desired
+
+**Strategy Tips:**
+- Use type advantages when switching Pokemon
+- Check opponent Pokemon HP before deciding which team member to use
+- Keep your team balanced with different types
+- Save high-HP Pokemon for critical moments
+- Don't waste strong Pokemon on weakened opponents
 
 ### Battle Mechanics
 
