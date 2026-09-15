@@ -165,7 +165,7 @@ class PokemonFactory:
 
 
 class Battle:
-    def __init__(self, player_pokemon: Pokemon, opponent_pokemon: Pokemon, max_turns: int = 50):
+    def __init__(self, player_pokemon: Pokemon, opponent_pokemon: Pokemon, max_turns: int = 50, player_team: List[Pokemon] = None):
         self.player_pokemon = player_pokemon
         self.opponent_pokemon = opponent_pokemon
         self.turn_count = 0
@@ -173,6 +173,8 @@ class Battle:
         self.battle_log: List[str] = []
         self.game_over = False
         self.winner: Optional[str] = None
+        self.player_team = player_team or [player_pokemon]
+        self.opponent_team = [opponent_pokemon]
 
     def start(self):
         print("\n" + "=" * 60)
@@ -180,7 +182,55 @@ class Battle:
         print("=" * 60)
         print(f"\nPlayer's Pokemon: {self.player_pokemon}")
         print(f"Opponent's Pokemon: {self.opponent_pokemon}")
+        print(f"Team Size: {len([p for p in self.player_team if not p.is_fainted()])}/{len(self.player_team)} Pokemon remaining")
         print("\n" + "-" * 60)
+
+    def get_active_team(self) -> List[Pokemon]:
+        """Get all non-fainted Pokemon from team"""
+        return [p for p in self.player_team if not p.is_fainted()]
+
+    def switch_pokemon(self, new_pokemon: Pokemon) -> bool:
+        """Switch to a different Pokemon"""
+        if new_pokemon.is_fainted():
+            return False
+        if new_pokemon == self.player_pokemon:
+            return False
+        self.player_pokemon = new_pokemon
+        print(f"\nPlayer switched to {self.player_pokemon.name}!")
+        print(f"{self.player_pokemon.name} HP: {self.player_pokemon.current_hp}/{self.player_pokemon.max_hp}")
+        return True
+
+    def prompt_pokemon_switch(self) -> Optional[Pokemon]:
+        """Prompt player to switch Pokemon after fainting"""
+        active_team = self.get_active_team()
+
+        if not active_team:
+            return None
+
+        if len(active_team) == 1 and active_team[0] == self.player_pokemon:
+            return None
+
+        print(f"\n{self.player_pokemon.name} fainted!")
+        print(f"\nChoose your next Pokemon:")
+
+        for i, pokemon in enumerate(active_team, 1):
+            hp_bar_length = 15
+            hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
+            hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
+            print(f"  {i}. {pokemon.name:<15} [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
+
+        try:
+            choice = int(input("\nChoose Pokemon (or 0 to forfeit): ")) - 1
+            if choice == -1:
+                return None
+            if 0 <= choice < len(active_team):
+                selected = active_team[choice]
+                if selected != self.player_pokemon:
+                    return selected
+        except (ValueError, IndexError):
+            pass
+
+        return None
 
     def process_turn(self, player_move_choice: Optional[int] = None) -> bool:
         if self.game_over:
@@ -221,19 +271,29 @@ class Battle:
 
             opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon)
             print(f"\n{opponent_result['message']}")
-            print(f"{self.player_pokemon.name} HP: {self.player_pokemon.current_hp}/{self.player_pokemon.max_hp}")
+            print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
 
             if self.player_pokemon.is_fainted():
-                self._end_battle("Opponent")
-                return False
+                new_pokemon = self.prompt_pokemon_switch()
+                if new_pokemon:
+                    self.switch_pokemon(new_pokemon)
+                else:
+                    self._end_battle("Opponent")
+                    return False
+                return True
         else:
             opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon)
             print(f"\n{opponent_result['message']}")
-            print(f"{self.player_pokemon.name} HP: {self.player_pokemon.current_hp}/{self.player_pokemon.max_hp}")
+            print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
 
             if self.player_pokemon.is_fainted():
-                self._end_battle("Opponent")
-                return False
+                new_pokemon = self.prompt_pokemon_switch()
+                if new_pokemon:
+                    self.switch_pokemon(new_pokemon)
+                else:
+                    self._end_battle("Opponent")
+                    return False
+                return True
 
             player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon)
             print(f"\n{player_result['message']}")
@@ -362,13 +422,15 @@ class Game:
         print("=" * 60)
 
         player_pokemon = self.player_team[0]
-        if player_pokemon.is_fainted():
-            print(f"\n{player_pokemon.name} is fainted! You have no Pokemon left.")
+        active_team = [p for p in self.player_team if not p.is_fainted()]
+
+        if not active_team:
+            print("\nAll your Pokemon are fainted! Create a new team first.")
             return
 
         opponent_pokemon = PokemonFactory.create_random_pokemon(self.player_level)
 
-        self.current_battle = Battle(player_pokemon, opponent_pokemon, max_turns=50)
+        self.current_battle = Battle(player_pokemon, opponent_pokemon, max_turns=50, player_team=self.player_team)
         self.current_battle.start()
 
         print("\nWould you like to battle manually or automatically?")
