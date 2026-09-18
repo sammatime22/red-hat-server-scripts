@@ -8,6 +8,8 @@ with full narrative campaign, NPC trainers, and 100-turn battles.
 import random
 import sys
 import time
+import json
+import os
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
 from enum import Enum
@@ -542,6 +544,8 @@ class Battle:
 
 
 class Game:
+    SAVE_FILE = "pokemon_save.json"
+
     def __init__(self):
         self.player_team: List[Pokemon] = []
         self.player_name = "Trainer"
@@ -550,6 +554,87 @@ class Game:
         self.story_progress = 0
         self.defeated_trainers = []
         self.total_wins = 0
+
+    def save_game(self):
+        save_data = {
+            "player_name": self.player_name,
+            "player_level": self.player_level,
+            "story_progress": self.story_progress,
+            "total_wins": self.total_wins,
+            "defeated_trainers": self.defeated_trainers,
+            "team": []
+        }
+
+        for pokemon in self.player_team:
+            pokemon_data = {
+                "name": pokemon.name,
+                "pokemon_type": pokemon.pokemon_type.value,
+                "level": pokemon.level,
+                "current_hp": pokemon.current_hp,
+                "max_hp": pokemon.max_hp,
+                "experience": pokemon.experience,
+                "moves": [
+                    {
+                        "name": move.name,
+                        "power": move.power,
+                        "accuracy": move.accuracy,
+                        "pokemon_type": move.pokemon_type.value
+                    }
+                    for move in pokemon.moves
+                ]
+            }
+            save_data["team"].append(pokemon_data)
+
+        try:
+            with open(self.SAVE_FILE, 'w') as f:
+                json.dump(save_data, f, indent=2)
+            print(f"\n✓ Game saved successfully!")
+        except Exception as e:
+            print(f"\n✗ Error saving game: {e}")
+
+    def load_game(self) -> bool:
+        if not os.path.exists(self.SAVE_FILE):
+            return False
+
+        try:
+            with open(self.SAVE_FILE, 'r') as f:
+                save_data = json.load(f)
+
+            self.player_name = save_data.get("player_name", "Trainer")
+            self.player_level = save_data.get("player_level", 10)
+            self.story_progress = save_data.get("story_progress", 0)
+            self.total_wins = save_data.get("total_wins", 0)
+            self.defeated_trainers = save_data.get("defeated_trainers", [])
+
+            self.player_team = []
+            for pokemon_data in save_data.get("team", []):
+                pokemon_type = Type[pokemon_data["pokemon_type"].upper()]
+                moves = []
+                for move_data in pokemon_data.get("moves", []):
+                    move_type = Type[move_data["pokemon_type"].upper()]
+                    move = Move(
+                        name=move_data["name"],
+                        power=move_data["power"],
+                        accuracy=move_data["accuracy"],
+                        pokemon_type=move_type
+                    )
+                    moves.append(move)
+
+                pokemon = Pokemon(
+                    name=pokemon_data["name"],
+                    pokemon_type=pokemon_type,
+                    max_hp=pokemon_data["max_hp"],
+                    current_hp=pokemon_data["current_hp"],
+                    level=pokemon_data["level"],
+                    moves=moves,
+                    experience=pokemon_data.get("experience", 0)
+                )
+                self.player_team.append(pokemon)
+
+            return True
+        except Exception as e:
+            print(f"\n✗ Error loading game: {e}")
+            return False
 
     def print_story_intro(self):
         print("\n" + "=" * 70)
@@ -614,7 +699,9 @@ Your adventure awaits! Will you answer the call?
                 else:
                     print("Invalid choice! Please try again.")
             except KeyboardInterrupt:
-                print("\n\nGame interrupted. Goodbye!")
+                print("\n\nGame interrupted. Saving progress...")
+                self.save_game()
+                print("Goodbye!")
                 sys.exit(0)
 
     def print_farewell(self):
@@ -631,6 +718,7 @@ Your Journey Summary:
 The legend of your adventures will be remembered! Until next time, trainer!
 """)
         print("=" * 70)
+        self.save_game()
 
     def view_guild_status(self):
         guilds = [
@@ -956,9 +1044,34 @@ appears before you!
 
 def main():
     game = Game()
-    game.print_story_intro()
-    input("\nPress Enter to continue your journey...")
-    game.create_team()
+
+    if os.path.exists(game.SAVE_FILE):
+        print("\n" + "=" * 70)
+        print("POKEMON QUEST")
+        print("=" * 70)
+        print("\nA save file was found!")
+        print("1. Continue your adventure")
+        print("2. Start a new game")
+
+        choice = input("\nChoose an option (1 or 2): ").strip()
+        if choice == "1":
+            if game.load_game():
+                print(f"\n✓ Welcome back, {game.player_name}!")
+                print(f"✓ Progress: {game.story_progress}/8 Guild Masters defeated")
+                print(f"✓ Team Size: {len(game.player_team)} Pokemon")
+                input("\nPress Enter to continue your journey...")
+                game.main_menu()
+                return
+            else:
+                print("\nFailed to load save file. Starting a new game...")
+        game.print_story_intro()
+        input("\nPress Enter to continue your journey...")
+        game.create_team()
+    else:
+        game.print_story_intro()
+        input("\nPress Enter to continue your journey...")
+        game.create_team()
+
     game.main_menu()
 
 
