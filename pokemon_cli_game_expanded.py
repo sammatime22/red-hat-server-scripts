@@ -104,6 +104,7 @@ class Pokemon:
     current_hp: int
     level: int
     moves: List[Move]
+    experience: int = 0
 
     def is_fainted(self) -> bool:
         return self.current_hp <= 0
@@ -113,6 +114,26 @@ class Pokemon:
 
     def heal_full(self):
         self.current_hp = self.max_hp
+
+    def gain_experience(self, amount: int) -> None:
+        """Gain experience points"""
+        self.experience += amount
+
+        # Level up every 100 experience points
+        while self.experience >= 100:
+            self.level_up()
+
+    def level_up(self) -> None:
+        """Increase level and reset experience"""
+        self.level += 1
+        self.experience -= 100
+        self.max_hp += 10
+        self.current_hp = self.max_hp
+        print(f"\n✨ {self.name} leveled up to Level {self.level}! ✨")
+
+    def get_experience_to_next_level(self) -> int:
+        """Get remaining experience needed for next level"""
+        return 100 - self.experience
 
     def __str__(self) -> str:
         return f"{self.name} (Lvl {self.level}) {self.pokemon_type.emoji} {self.pokemon_type.value} Type"
@@ -569,11 +590,12 @@ Your adventure awaits! Will you answer the call?
             print("2. Challenge a Guild Master (Story Mode)")
             print("3. View Your Pokemon")
             print("4. Create a Custom Team")
-            print("5. View Guild Status")
-            print("6. Exit")
+            print("5. Release a Pokemon")
+            print("6. View Guild Status")
+            print("7. Exit")
 
             try:
-                choice = input("\nChoose an option (1-6): ").strip()
+                choice = input("\nChoose an option (1-7): ").strip()
                 if choice == "1":
                     self.start_battle()
                 elif choice == "2":
@@ -583,8 +605,10 @@ Your adventure awaits! Will you answer the call?
                 elif choice == "4":
                     self.create_team()
                 elif choice == "5":
-                    self.view_guild_status()
+                    self.release_pokemon()
                 elif choice == "6":
+                    self.view_guild_status()
+                elif choice == "7":
                     self.print_farewell()
                     sys.exit(0)
                 else:
@@ -797,13 +821,63 @@ Available Types:
             hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
             hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
 
+            # Experience bar
+            exp_bar_length = 20
+            exp_percent = pokemon.experience / 100
+            exp_bar = "▓" * int(exp_bar_length * exp_percent) + "░" * (exp_bar_length - int(exp_bar_length * exp_percent))
+
             status = "🔴 FAINTED" if pokemon.is_fainted() else "🟢 ACTIVE"
 
             print(f"\n{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
             print(f"   Type: {pokemon.pokemon_type.value:<10} | HP: [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
+            print(f"   EXP: [{exp_bar}] {pokemon.experience}/100")
             print(f"   Moves: {', '.join(move.name for move in pokemon.moves)}")
 
         print("\n" + "=" * 70)
+
+    def release_pokemon(self):
+        print("\n" + "=" * 70)
+        print("RELEASE A POKEMON")
+        print("=" * 70)
+
+        if not self.player_team:
+            print("\nYou don't have any Pokemon to release!")
+            return
+
+        if len(self.player_team) == 1:
+            print("\nYou only have one Pokemon! You cannot release your last Pokemon.")
+            return
+
+        print("\nWhich Pokemon do you want to release?")
+        print("(This action cannot be undone!)\n")
+
+        for i, pokemon in enumerate(self.player_team, 1):
+            status = "🔴 FAINTED" if pokemon.is_fainted() else "🟢 ACTIVE"
+            print(f"{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
+
+        try:
+            choice = input("\nChoose a Pokemon (number) or 0 to cancel: ").strip()
+            if choice == "0":
+                print("Release cancelled.")
+                return
+
+            pokemon_index = int(choice) - 1
+            if pokemon_index < 0 or pokemon_index >= len(self.player_team):
+                print("Invalid selection!")
+                return
+
+            released_pokemon = self.player_team[pokemon_index]
+            confirm = input(f"\nAre you sure you want to release {released_pokemon.name}? (y/n): ").strip().lower()
+
+            if confirm == "y":
+                self.player_team.pop(pokemon_index)
+                print(f"\n✓ {released_pokemon.pokemon_type.emoji} {released_pokemon.name} was released into the wild!")
+                print(f"✓ Your team now has {len(self.player_team)} Pokemon.")
+            else:
+                print("Release cancelled.")
+
+        except ValueError:
+            print("Invalid input! Please enter a number.")
 
     def start_battle(self):
         if not self.player_team:
@@ -859,6 +933,13 @@ appears before you!
             if winner == self.player_name:
                 self.total_wins += 1
                 print("\n✓ Victory! Your Pokemon gained valuable experience!")
+
+                # Award experience to all active Pokemon
+                for pokemon in self.player_team:
+                    if not pokemon.is_fainted():
+                        exp_gain = 25
+                        pokemon.gain_experience(exp_gain)
+                        print(f"  {pokemon.name} gained {exp_gain} EXP!")
 
                 # Offer to catch the opponent's Pokemon if player team isn't full
                 if len(self.player_team) < 6:
