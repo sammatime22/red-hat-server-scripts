@@ -554,6 +554,7 @@ class Game:
         self.story_progress = 0
         self.defeated_trainers = []
         self.total_wins = 0
+        self.cash = 0
 
     def save_game(self):
         save_data = {
@@ -562,6 +563,7 @@ class Game:
             "story_progress": self.story_progress,
             "total_wins": self.total_wins,
             "defeated_trainers": self.defeated_trainers,
+            "cash": self.cash,
             "team": []
         }
 
@@ -605,6 +607,7 @@ class Game:
             self.story_progress = save_data.get("story_progress", 0)
             self.total_wins = save_data.get("total_wins", 0)
             self.defeated_trainers = save_data.get("defeated_trainers", [])
+            self.cash = save_data.get("cash", 0)
 
             self.player_team = []
             for pokemon_data in save_data.get("team", []):
@@ -670,17 +673,18 @@ Your adventure awaits! Will you answer the call?
             print("POKEMON QUEST - MAIN MENU")
             print("=" * 70)
             print(f"\nTrainer: {self.player_name} | Level: {self.player_level} | Wins: {self.total_wins}")
-            print(f"Story Progress: {self.story_progress}/8 Guild Masters Defeated")
+            print(f"Cash: {self.cash}¢ | Story Progress: {self.story_progress}/8 Guild Masters Defeated")
             print("\n1. Start a Battle")
             print("2. Challenge a Guild Master (Story Mode)")
             print("3. View Your Pokemon")
             print("4. Create a Custom Team")
             print("5. Release a Pokemon")
-            print("6. View Guild Status")
-            print("7. Exit")
+            print("6. Visit PokéCenter")
+            print("7. View Guild Status")
+            print("8. Exit")
 
             try:
-                choice = input("\nChoose an option (1-7): ").strip()
+                choice = input("\nChoose an option (1-8): ").strip()
                 if choice == "1":
                     self.start_battle()
                 elif choice == "2":
@@ -692,8 +696,10 @@ Your adventure awaits! Will you answer the call?
                 elif choice == "5":
                     self.release_pokemon()
                 elif choice == "6":
-                    self.view_guild_status()
+                    self.visit_pokecenter()
                 elif choice == "7":
+                    self.view_guild_status()
+                elif choice == "8":
                     self.print_farewell()
                     sys.exit(0)
                 else:
@@ -914,7 +920,7 @@ Available Types:
             exp_percent = pokemon.experience / 100
             exp_bar = "▓" * int(exp_bar_length * exp_percent) + "░" * (exp_bar_length - int(exp_bar_length * exp_percent))
 
-            status = "🔴 FAINTED" if pokemon.is_fainted() else "🟢 ACTIVE"
+            status = "☠️ DEAD" if pokemon.is_fainted() else "✅ ALIVE"
 
             print(f"\n{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
             print(f"   Type: {pokemon.pokemon_type.value:<10} | HP: [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
@@ -940,7 +946,7 @@ Available Types:
         print("(This action cannot be undone!)\n")
 
         for i, pokemon in enumerate(self.player_team, 1):
-            status = "🔴 FAINTED" if pokemon.is_fainted() else "🟢 ACTIVE"
+            status = "☠️ DEAD" if pokemon.is_fainted() else "✅ ALIVE"
             print(f"{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
 
         try:
@@ -966,6 +972,39 @@ Available Types:
 
         except ValueError:
             print("Invalid input! Please enter a number.")
+
+    def visit_pokecenter(self):
+        print("\n" + "=" * 70)
+        print("🏥 POKECENTER")
+        print("=" * 70)
+
+        if not self.player_team:
+            print("\nYou don't have any Pokemon!")
+            return
+
+        alive_pokemon = [p for p in self.player_team if not p.is_fainted()]
+        cost = len(alive_pokemon) * 100
+
+        print(f"\nWelcome to the PokéCenter!")
+        print(f"We have {len(alive_pokemon)} active Pokemon to heal.")
+        print(f"Healing cost: {cost}¢")
+
+        if self.cash < cost:
+            print(f"\nYou don't have enough cash!")
+            print(f"You have: {self.cash}¢")
+            print(f"You need: {cost}¢")
+            return
+
+        confirm = input(f"\nProceed with healing? (y/n): ").strip().lower()
+        if confirm == "y":
+            for pokemon in self.player_team:
+                pokemon.heal_full()
+            self.cash -= cost
+            print(f"\n✓ All Pokemon healed to full health!")
+            print(f"✓ Cost: {cost}¢")
+            print(f"✓ Remaining cash: {self.cash}¢")
+        else:
+            print("Healing cancelled.")
 
     def start_battle(self):
         if not self.player_team:
@@ -1028,6 +1067,11 @@ appears before you!
                         exp_gain = 25
                         pokemon.gain_experience(exp_gain)
                         print(f"  {pokemon.name} gained {exp_gain} EXP!")
+
+                # Award cash for winning
+                cash_reward = 100
+                self.cash += cash_reward
+                print(f"  You received {cash_reward}¢!")
 
                 # Offer to catch the opponent's Pokemon if player team isn't full
                 if len(self.player_team) < 6:
