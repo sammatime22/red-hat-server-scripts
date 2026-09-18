@@ -16,6 +16,15 @@ class Type(Enum):
     WATER = "Water"
     GRASS = "Grass"
 
+    @property
+    def emoji(self) -> str:
+        emoji_map = {
+            Type.FIRE: "🔥",
+            Type.WATER: "💧",
+            Type.GRASS: "🌿",
+        }
+        return emoji_map.get(self, "⚪")
+
 
 @dataclass
 class Move:
@@ -93,7 +102,7 @@ class Pokemon:
         self.current_hp = self.max_hp
 
     def __str__(self) -> str:
-        return f"{self.name} (Lvl {self.level}) - {self.pokemon_type.value} Type"
+        return f"{self.name} (Lvl {self.level}) {self.pokemon_type.emoji} {self.pokemon_type.value} Type"
 
 
 class PokemonFactory:
@@ -327,6 +336,34 @@ class Battle:
                 print(f"\n{self.opponent_pokemon.name} wins the battle!")
         print("=" * 60)
 
+    def offer_catch(self, pokemon_to_catch: Pokemon) -> bool:
+        """Offer player a chance to catch the defeated Pokemon"""
+        print(f"\n{pokemon_to_catch.name} {pokemon_to_catch.pokemon_type.emoji} has been defeated!")
+        print(f"Would you like to catch this {pokemon_to_catch.pokemon_type.value}-type Pokemon?")
+        print("\nI'm thinking of a number between 1 and 5...")
+        print("If you guess correctly, you can add it to your team!")
+
+        secret_number = random.randint(1, 5)
+
+        try:
+            guess = int(input("\nGuess a number (1-5): "))
+            if 1 <= guess <= 5:
+                if guess == secret_number:
+                    print(f"\n🎉 Correct! The number was {secret_number}!")
+                    print(f"You caught {pokemon_to_catch.name} {pokemon_to_catch.pokemon_type.emoji}!")
+                    pokemon_to_catch.heal_full()
+                    return True
+                else:
+                    print(f"\n❌ Wrong! The number was {secret_number}.")
+                    print(f"{pokemon_to_catch.name} got away!")
+                    return False
+            else:
+                print("Invalid number! The Pokemon got away!")
+                return False
+        except (ValueError, KeyboardInterrupt):
+            print("Invalid input! The Pokemon got away!")
+            return False
+
     def run_auto_battle(self) -> str:
         self.start()
         while not self.game_over and self.process_turn(random.randint(0, 1)):
@@ -447,6 +484,17 @@ class Game:
                     if not self.current_battle.process_turn():
                         break
                 print(f"\nBattle Result: {self.current_battle.winner}")
+
+            # Offer to catch the opponent's Pokemon if player won
+            if self.current_battle.winner == "Player":
+                if len(self.player_team) < 6:
+                    if self.current_battle.offer_catch(self.current_battle.opponent_pokemon):
+                        self.player_team.append(self.current_battle.opponent_pokemon)
+                        print(f"\n{self.current_battle.opponent_pokemon.name} was added to your team!")
+                else:
+                    print(f"\n{self.current_battle.opponent_pokemon.name} wants to join your team,")
+                    print("but your team is full (6/6 Pokemon)!")
+
         except KeyboardInterrupt:
             print("\n\nBattle interrupted!")
 
