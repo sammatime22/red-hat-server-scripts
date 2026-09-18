@@ -810,15 +810,18 @@ Available Types:
             print("\nYou don't have any Pokemon! Create a team first.")
             return
 
+        # Find first non-fainted Pokemon
+        active_team = [p for p in self.player_team if not p.is_fainted()]
+
+        if not active_team:
+            print("\nAll your Pokemon are fainted! Create a new team first.")
+            return
+
         print("\n" + "=" * 70)
         print("WILD POKEMON BATTLE!")
         print("=" * 70)
 
-        player_pokemon = self.player_team[0]
-        if player_pokemon.is_fainted():
-            print(f"\n{player_pokemon.name} is fainted! You have no Pokemon left to battle.")
-            return
-
+        player_pokemon = active_team[0]
         opponent_pokemon = PokemonFactory.create_random_pokemon(self.player_level)
 
         print(f"""
