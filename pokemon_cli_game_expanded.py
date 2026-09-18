@@ -797,8 +797,10 @@ Available Types:
             hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
             hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
 
-            print(f"\n{i}. {pokemon.name:<15} | Lvl {pokemon.level:<3} | {pokemon.pokemon_type.value:<10}")
-            print(f"   HP: [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
+            status = "🔴 FAINTED" if pokemon.is_fainted() else "🟢 ACTIVE"
+
+            print(f"\n{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
+            print(f"   Type: {pokemon.pokemon_type.value:<10} | HP: [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
             print(f"   Moves: {', '.join(move.name for move in pokemon.moves)}")
 
         print("\n" + "=" * 70)
