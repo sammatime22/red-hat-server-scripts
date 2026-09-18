@@ -48,7 +48,10 @@ class Move:
     pokemon_type: Type
     description: str = ""
 
-    def execute(self, attacker: "Pokemon", defender: "Pokemon") -> Dict:
+    def execute(self, attacker: "Pokemon", defender: "Pokemon", player_is_attacker: bool = False) -> Dict:
+        if self.name == "Protect":
+            return self._execute_protect(attacker, player_is_attacker)
+
         if random.random() > self.accuracy:
             return {"hit": False, "message": f"{attacker.name} used {self.name}, but missed!"}
 
@@ -66,7 +69,50 @@ class Move:
             "damage": damage,
             "message": message,
             "defender_hp": defender.current_hp,
+            "is_protect": False,
         }
+
+    def _execute_protect(self, user: "Pokemon", player_is_user: bool) -> Dict:
+        secret_number = random.randint(1, 3)
+
+        if player_is_user:
+            try:
+                guess = int(input(f"\n{user.name} used Protect! Guess the secret number (1-3): ").strip())
+                if guess not in [1, 2, 3]:
+                    print("Invalid number! Protection failed.")
+                    return {
+                        "hit": True,
+                        "damage": 0,
+                        "message": f"{user.name} used Protect, but the guess was invalid! It failed!",
+                        "is_protect": False,
+                    }
+            except ValueError:
+                print("Invalid input! Protection failed.")
+                return {
+                    "hit": True,
+                    "damage": 0,
+                    "message": f"{user.name} used Protect, but failed!",
+                    "is_protect": False,
+                }
+        else:
+            guess = random.randint(1, 3)
+
+        if guess == secret_number:
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"{user.name} used Protect! Correct guess ({guess})! Attack blocked! 🛡️",
+                "is_protect": True,
+                "defender_hp": user.current_hp,
+            }
+        else:
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"{user.name} used Protect! Wrong guess ({guess}, secret was {secret_number}). Protection failed!",
+                "is_protect": False,
+                "defender_hp": user.current_hp,
+            }
 
     def _calculate_damage(self, attacker: "Pokemon", defender: "Pokemon") -> int:
         base_damage = self.power
@@ -142,6 +188,8 @@ class Pokemon:
 
 
 class PokemonFactory:
+    PROTECT_MOVE = Move("Protect", 0, 1.0, Type.FIRE, "Guess 1-3 to block damage")
+
     FIRE_MOVES = [
         Move("Ember", 40, 1.0, Type.FIRE, "A small flame attack"),
         Move("Flame Burst", 70, 1.0, Type.FIRE, "Bursts into flames"),
@@ -218,6 +266,11 @@ class PokemonFactory:
         name, base_level = random.choice(pokemon_list)
         moves = random.sample(move_list, 2)
 
+        # Replace lowest power move with Protect
+        lowest_move = min(moves, key=lambda m: m.power)
+        moves.remove(lowest_move)
+        moves.append(cls.PROTECT_MOVE)
+
         max_hp = base_level * 2 + level
         return Pokemon(name=name, pokemon_type=pokemon_type, max_hp=max_hp, current_hp=max_hp, level=level, moves=moves)
 
@@ -237,6 +290,12 @@ class PokemonFactory:
         pokemon_list, move_list = type_map[pokemon_type]
         name, base_level = random.choice(pokemon_list)
         moves = random.sample(move_list, 2)
+
+        # Replace lowest power move with Protect
+        lowest_move = min(moves, key=lambda m: m.power)
+        moves.remove(lowest_move)
+        moves.append(cls.PROTECT_MOVE)
+
         max_hp = base_level * 2 + level
         return Pokemon(name=name, pokemon_type=pokemon_type, max_hp=max_hp, current_hp=max_hp, level=level, moves=moves)
 
@@ -442,17 +501,19 @@ class Battle:
         opponent_speed = self.opponent_pokemon.level
 
         if player_speed >= opponent_speed:
-            player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon)
+            player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
             print(f"\n{player_result['message']}")
-            print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
+            if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
+                print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
 
             if self.opponent_pokemon.is_fainted():
                 self._end_battle(self.player_name)
                 return False
 
-            opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon)
+            opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
             print(f"\n{opponent_result['message']}")
-            print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
+            if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
+                print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
 
             if self.player_pokemon.is_fainted():
                 new_pokemon = self.prompt_pokemon_switch()
@@ -463,9 +524,10 @@ class Battle:
                     return False
                 return True
         else:
-            opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon)
+            opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
             print(f"\n{opponent_result['message']}")
-            print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
+            if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
+                print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
 
             if self.player_pokemon.is_fainted():
                 new_pokemon = self.prompt_pokemon_switch()
@@ -476,9 +538,10 @@ class Battle:
                     return False
                 return True
 
-            player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon)
+            player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
             print(f"\n{player_result['message']}")
-            print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
+            if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
+                print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
 
             if self.opponent_pokemon.is_fainted():
                 self._end_battle(self.player_name)
@@ -1011,7 +1074,7 @@ Available Types:
             print("\nYou don't have any Pokemon! Create a team first.")
             return
 
-        # Find first non-fainted Pokemon
+        # Find non-fainted Pokemon
         active_team = [p for p in self.player_team if not p.is_fainted()]
 
         if not active_team:
@@ -1022,7 +1085,25 @@ Available Types:
         print("WILD POKEMON BATTLE!")
         print("=" * 70)
 
-        player_pokemon = active_team[0]
+        # Let player choose which Pokemon to use
+        print(f"\nChoose your Pokemon for battle:")
+        for i, pokemon in enumerate(active_team, 1):
+            hp_bar_length = 15
+            hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
+            hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
+            print(f"  {i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
+
+        try:
+            choice = int(input("\nChoose Pokemon (number): ")) - 1
+            if choice < 0 or choice >= len(active_team):
+                print("Invalid choice! Using first Pokemon...")
+                player_pokemon = active_team[0]
+            else:
+                player_pokemon = active_team[choice]
+        except ValueError:
+            print("Invalid input! Using first Pokemon...")
+            player_pokemon = active_team[0]
+
         opponent_pokemon = PokemonFactory.create_random_pokemon(self.player_level)
 
         print(f"""
