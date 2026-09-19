@@ -786,11 +786,12 @@ class Game:
         self.player_team: List[Pokemon] = []
         self.player_name = "Trainer"
         self.current_battle: Optional[Battle] = None
-        self.player_level = 10
+        self.player_level = 20
         self.story_progress = 0
         self.defeated_trainers = []
         self.total_wins = 0
         self.cash = 0
+        self.team_created = False
 
     def save_game(self):
         save_data = {
@@ -800,6 +801,7 @@ class Game:
             "total_wins": self.total_wins,
             "defeated_trainers": self.defeated_trainers,
             "cash": self.cash,
+            "team_created": self.team_created,
             "team": []
         }
 
@@ -840,11 +842,12 @@ class Game:
                 save_data = json.load(f)
 
             self.player_name = save_data.get("player_name", "Trainer")
-            self.player_level = save_data.get("player_level", 10)
+            self.player_level = save_data.get("player_level", 20)
             self.story_progress = save_data.get("story_progress", 0)
             self.total_wins = save_data.get("total_wins", 0)
             self.defeated_trainers = save_data.get("defeated_trainers", [])
             self.cash = save_data.get("cash", 0)
+            self.team_created = save_data.get("team_created", True)
 
             self.player_team = []
             for pokemon_data in save_data.get("team", []):
@@ -915,14 +918,24 @@ Your adventure awaits! Will you answer the call?
             print("\n1. Start a Battle")
             print("2. Challenge a Guild Master (Story Mode)")
             print("3. View Your Pokemon")
-            print("4. Create a Custom Team")
-            print("5. Release a Pokemon")
-            print("6. Visit PokéCenter")
-            print("7. View Guild Status")
-            print("8. Exit")
+
+            # Show "Create a Custom Team" only if team hasn't been created yet
+            if not self.team_created:
+                print("4. Create a Custom Team")
+                print("5. Release a Pokemon")
+                print("6. Visit PokéCenter")
+                print("7. View Guild Status")
+                print("8. Exit")
+                max_option = 8
+            else:
+                print("4. Release a Pokemon")
+                print("5. Visit PokéCenter")
+                print("6. View Guild Status")
+                print("7. Exit")
+                max_option = 7
 
             try:
-                choice = input("\nChoose an option (1-8): ").strip()
+                choice = input(f"\nChoose an option (1-{max_option}): ").strip()
                 if choice == "1":
                     self.start_battle()
                 elif choice == "2":
@@ -930,14 +943,28 @@ Your adventure awaits! Will you answer the call?
                 elif choice == "3":
                     self.view_team()
                 elif choice == "4":
-                    self.create_team()
+                    if not self.team_created:
+                        self.create_team()
+                        self.team_created = True
+                    else:
+                        self.release_pokemon()
                 elif choice == "5":
-                    self.release_pokemon()
+                    if not self.team_created:
+                        self.release_pokemon()
+                    else:
+                        self.visit_pokecenter()
                 elif choice == "6":
-                    self.visit_pokecenter()
+                    if not self.team_created:
+                        self.visit_pokecenter()
+                    else:
+                        self.view_guild_status()
                 elif choice == "7":
-                    self.view_guild_status()
-                elif choice == "8":
+                    if not self.team_created:
+                        self.view_guild_status()
+                    else:
+                        self.print_farewell()
+                        sys.exit(0)
+                elif choice == "8" and not self.team_created:
                     self.print_farewell()
                     sys.exit(0)
                 else:
@@ -1122,11 +1149,17 @@ Available Types:
             print(f"\nWelcome, {self.player_name}! Your journey begins now!")
 
         self.player_team = []
+        used_types = set()
         for i in range(1, 7):
             try:
                 choice = input(f"\nAdd Pokemon {i}? (y/n): ").strip().lower()
                 if choice == "y":
+                    # Keep generating until we get a type we haven't used yet
                     pokemon = PokemonFactory.create_random_pokemon(self.player_level)
+                    while pokemon.pokemon_type in used_types:
+                        pokemon = PokemonFactory.create_random_pokemon(self.player_level)
+
+                    used_types.add(pokemon.pokemon_type)
                     self.player_team.append(pokemon)
                     print(f"✓ Caught: {pokemon}")
                     print(f"  This {pokemon.pokemon_type.value}-type Pokemon will serve you well!")
