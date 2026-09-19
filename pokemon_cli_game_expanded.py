@@ -31,11 +31,11 @@ class Type(Enum):
             Type.FIRE: "🔥",
             Type.WATER: "💧",
             Type.GRASS: "🌿",
-            Type.FLYING: "✈️",
+            Type.FLYING: "✈️ ",
             Type.PSYCHIC: "💫",
             Type.GHOST: "👻",
             Type.FIGHTING: "✊",
-            Type.GROUND: "⛰️",
+            Type.GROUND: "⛰️ ",
         }
         return emoji_map.get(self, "⚪")
 
@@ -1275,7 +1275,7 @@ Available Types:
             hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
             current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
             max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
-            print(f"  {i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {current_hp_str}/{max_hp_str}")
+            print(f"  {i}. {pokemon.pokemon_type.emoji}   {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {current_hp_str}/{max_hp_str}")
 
         try:
             choice = int(input("\nChoose Pokemon (number): ")) - 1
