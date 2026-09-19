@@ -47,16 +47,110 @@ class Move:
     accuracy: float
     pokemon_type: Type
     description: str = ""
+    effect: str = ""
 
     def execute(self, attacker: "Pokemon", defender: "Pokemon", player_is_attacker: bool = False) -> Dict:
-        if self.name == "Protect":
+        if self.effect == "foresight":
             return self._execute_protect(attacker, player_is_attacker)
 
+        if self.effect == "fly":
+            if attacker.charging == "fly":
+                attacker.charging = ""
+                return self._execute_normal_attack(attacker, defender, damage_mult=1.0)
+            else:
+                attacker.charging = "fly"
+                return {
+                    "hit": True,
+                    "damage": 0,
+                    "message": f"{attacker.name} took to the skies! Will strike next turn!",
+                    "is_protect": False,
+                    "defender_hp": defender.current_hp,
+                }
+
+        if self.effect == "dig":
+            if attacker.charging == "dig":
+                attacker.charging = ""
+                return self._execute_normal_attack(attacker, defender, damage_mult=1.0)
+            else:
+                attacker.charging = "dig"
+                return {
+                    "hit": True,
+                    "damage": 0,
+                    "message": f"{attacker.name} burrowed underground! Will strike next turn!",
+                    "is_protect": False,
+                    "defender_hp": defender.current_hp,
+                }
+
+        if self.effect == "sunny_day":
+            attacker.weather_effect = "sun"
+            attacker.weather_turns = 5
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"The sun grew harsh! Fire attacks are boosted, Water attacks weakened for 5 turns! ☀️",
+                "is_protect": False,
+                "defender_hp": defender.current_hp,
+            }
+
+        if self.effect == "rain_dance":
+            defender.weather_effect = "rain"
+            defender.weather_turns = 5
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"Rain began to fall! Water attacks are boosted, Fire attacks weakened for 5 turns! 🌧️",
+                "is_protect": False,
+                "defender_hp": defender.current_hp,
+            }
+
+        if self.effect == "absorb":
+            if random.random() > self.accuracy:
+                return {"hit": False, "message": f"{attacker.name} used {self.name}, but missed!"}
+            damage = 20
+            defender.current_hp -= damage
+            heal = min(20, attacker.max_hp - attacker.current_hp)
+            attacker.current_hp += heal
+            return {
+                "hit": True,
+                "damage": damage,
+                "message": f"{attacker.name} used {self.name}! {defender.name} took {damage} damage. {attacker.name} absorbed {heal} HP! 💚",
+                "defender_hp": defender.current_hp,
+                "is_protect": False,
+            }
+
+        if self.effect == "hex":
+            defender.disabled_turns = 2
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"{attacker.name} cursed {defender.name}! {defender.name} is disabled for 2 turns! 👻",
+                "defender_hp": defender.current_hp,
+                "is_protect": False,
+            }
+
+        if self.effect == "vital_throw":
+            if random.random() > self.accuracy:
+                return {"hit": False, "message": f"{attacker.name} used {self.name}, but missed!"}
+            damage = 40
+            defender.current_hp -= damage
+            return {
+                "hit": True,
+                "damage": damage,
+                "message": f"{attacker.name} used {self.name}! {defender.name} took {damage} damage and is thrown to the bench!",
+                "defender_hp": defender.current_hp,
+                "is_protect": False,
+                "force_switch": True,
+            }
+
+        return self._execute_normal_attack(attacker, defender)
+
+    def _execute_normal_attack(self, attacker: "Pokemon", defender: "Pokemon", damage_mult: float = 1.0) -> Dict:
         if random.random() > self.accuracy:
             return {"hit": False, "message": f"{attacker.name} used {self.name}, but missed!"}
 
         damage = self._calculate_damage(attacker, defender)
-        damage = max(1, damage)
+        damage = int(damage * damage_mult)
+        damage = max(1, damage) if damage > 0 else 0
         defender.current_hp -= damage
 
         message = f"{attacker.name} used {self.name}! {defender.name} took {damage} damage."
@@ -119,7 +213,21 @@ class Move:
         stab_bonus = 1.5 if self.pokemon_type == attacker.pokemon_type else 1.0
         type_advantage = self._get_type_effectiveness(defender.pokemon_type)
         critical = 1.5 if random.random() < 0.0625 else 1.0
-        damage = int(base_damage * stab_bonus * type_advantage * critical * 0.85)
+        
+        # Apply weather effects
+        weather_mult = 1.0
+        if attacker.weather_effect == "sun":
+            if self.pokemon_type == Type.FIRE:
+                weather_mult = 2.0
+            elif self.pokemon_type == Type.WATER:
+                weather_mult = 0.5
+        elif attacker.weather_effect == "rain":
+            if self.pokemon_type == Type.WATER:
+                weather_mult = 2.0
+            elif self.pokemon_type == Type.FIRE:
+                weather_mult = 0.5
+        
+        damage = int(base_damage * stab_bonus * type_advantage * critical * weather_mult * 0.85)
         return damage
 
     def _get_type_effectiveness(self, defender_type: Type) -> float:
@@ -153,9 +261,16 @@ class Pokemon:
     level: int
     moves: List[Move]
     experience: int = 0
+    disabled_turns: int = 0
+    charging: str = ""
+    weather_effect: str = ""
+    weather_turns: int = 0
 
     def is_fainted(self) -> bool:
         return self.current_hp <= 0
+
+    def can_attack(self) -> bool:
+        return self.disabled_turns <= 0
 
     def get_random_move(self) -> Move:
         return random.choice(self.moves)
@@ -188,54 +303,44 @@ class Pokemon:
 
 
 class PokemonFactory:
-    PROTECT_MOVE = Move("Protect", 0, 1.0, Type.FIRE, "Guess 1-3 to block damage")
-
     FIRE_MOVES = [
         Move("Ember", 40, 1.0, Type.FIRE, "A small flame attack"),
-        Move("Flame Burst", 70, 1.0, Type.FIRE, "Bursts into flames"),
-        Move("Fire Punch", 75, 1.0, Type.FIRE, "Powerful fire punch"),
+        Move("Sunny Day", 0, 1.0, Type.FIRE, "Raises sun for 5 turns", effect="sunny_day"),
     ]
 
     WATER_MOVES = [
         Move("Water Gun", 40, 1.0, Type.WATER, "A water spray attack"),
-        Move("Bubble Beam", 65, 1.0, Type.WATER, "Rapid bubble attack"),
-        Move("Surf", 90, 1.0, Type.WATER, "Massive water wave"),
+        Move("Rain Dance", 0, 1.0, Type.WATER, "Brings rain for 5 turns", effect="rain_dance"),
     ]
 
     GRASS_MOVES = [
-        Move("Razor Leaf", 55, 0.95, Type.GRASS, "Cutting leaves attack"),
-        Move("Solar Beam", 120, 1.0, Type.GRASS, "Powerful sun attack"),
-        Move("Vine Whip", 45, 1.0, Type.GRASS, "Whipping vines"),
+        Move("Razor Leaf", 40, 1.0, Type.GRASS, "Cutting leaves attack"),
+        Move("Absorb", 20, 1.0, Type.GRASS, "Absorbs health from opponent", effect="absorb"),
     ]
 
     FLYING_MOVES = [
-        Move("Peck", 35, 1.0, Type.FLYING, "Sharp pecking attack"),
-        Move("Aerial Ace", 60, 1.0, Type.FLYING, "Swift flying strike"),
-        Move("Sky Attack", 140, 0.9, Type.FLYING, "Devastating sky assault"),
+        Move("Peck", 40, 1.0, Type.FLYING, "Sharp pecking attack"),
+        Move("Fly", 60, 1.0, Type.FLYING, "Fly away and strike next turn", effect="fly"),
     ]
 
     PSYCHIC_MOVES = [
-        Move("Confusion", 50, 1.0, Type.PSYCHIC, "Psychic wave attack"),
-        Move("Psybeam", 65, 1.0, Type.PSYCHIC, "Mystical psychic beam"),
-        Move("Psychic", 90, 1.0, Type.PSYCHIC, "Overwhelming psychic force"),
+        Move("Confusion", 40, 1.0, Type.PSYCHIC, "Psychic wave attack"),
+        Move("Foresight", 0, 1.0, Type.PSYCHIC, "Guess 1-3 to block damage", effect="foresight"),
     ]
 
     GHOST_MOVES = [
-        Move("Shadow Ball", 80, 1.0, Type.GHOST, "Ghostly shadow attack"),
-        Move("Lick", 30, 1.0, Type.GHOST, "Spooky lick attack"),
-        Move("Night Shade", 75, 1.0, Type.GHOST, "Eerie shade of night"),
+        Move("Shadow Ball", 40, 1.0, Type.GHOST, "Ghostly shadow attack"),
+        Move("Hex", 0, 1.0, Type.GHOST, "Haunts opponent for 2 turns", effect="hex"),
     ]
 
     FIGHTING_MOVES = [
-        Move("Karate Chop", 50, 1.0, Type.FIGHTING, "Martial arts chop"),
-        Move("Close Combat", 120, 1.0, Type.FIGHTING, "Intense close-range battle"),
-        Move("Dynamic Punch", 100, 0.9, Type.FIGHTING, "Devastating punch attack"),
+        Move("Karate Chop", 40, 1.0, Type.FIGHTING, "Martial arts chop"),
+        Move("Vital Throw", 40, 1.0, Type.FIGHTING, "Throws opponent to bench", effect="vital_throw"),
     ]
 
     GROUND_MOVES = [
-        Move("Mud Slap", 20, 1.0, Type.GROUND, "Mud slapping attack"),
-        Move("Earthquake", 100, 1.0, Type.GROUND, "Earth-shaking tremor"),
-        Move("Dig", 80, 1.0, Type.GROUND, "Tunneling earth attack"),
+        Move("Mud Slap", 40, 1.0, Type.GROUND, "Mud slapping attack"),
+        Move("Dig", 60, 1.0, Type.GROUND, "Burrow and strike next turn", effect="dig"),
     ]
 
     FIRE_POKEMON = [("Cyndaquil", 39), ("Flareon", 42), ("Ponyta", 35), ("Vulpix", 33), ("Growlithe", 36)]
@@ -264,12 +369,7 @@ class PokemonFactory:
 
         pokemon_list, move_list = type_map[pokemon_type]
         name, base_level = random.choice(pokemon_list)
-        moves = random.sample(move_list, 2)
-
-        # Replace lowest power move with Protect
-        lowest_move = min(moves, key=lambda m: m.power)
-        moves.remove(lowest_move)
-        moves.append(cls.PROTECT_MOVE)
+        moves = list(move_list)  # Use all moves for this type
 
         max_hp = base_level * 2 + level
         return Pokemon(name=name, pokemon_type=pokemon_type, max_hp=max_hp, current_hp=max_hp, level=level, moves=moves)
@@ -289,12 +389,7 @@ class PokemonFactory:
 
         pokemon_list, move_list = type_map[pokemon_type]
         name, base_level = random.choice(pokemon_list)
-        moves = random.sample(move_list, 2)
-
-        # Replace lowest power move with Protect
-        lowest_move = min(moves, key=lambda m: m.power)
-        moves.remove(lowest_move)
-        moves.append(cls.PROTECT_MOVE)
+        moves = list(move_list)  # Use all moves for this type
 
         max_hp = base_level * 2 + level
         return Pokemon(name=name, pokemon_type=pokemon_type, max_hp=max_hp, current_hp=max_hp, level=level, moves=moves)
@@ -472,80 +567,120 @@ class Battle:
 
         return None
 
+    def _decay_status_effects(self):
+        """Decrement status effect counters at the start of each turn"""
+        if self.player_pokemon.disabled_turns > 0:
+            self.player_pokemon.disabled_turns -= 1
+        if self.opponent_pokemon.disabled_turns > 0:
+            self.opponent_pokemon.disabled_turns -= 1
+        
+        if self.player_pokemon.weather_turns > 0:
+            self.player_pokemon.weather_turns -= 1
+            if self.player_pokemon.weather_turns == 0:
+                self.player_pokemon.weather_effect = ""
+                print(f"The weather cleared!")
+        
+        if self.opponent_pokemon.weather_turns > 0:
+            self.opponent_pokemon.weather_turns -= 1
+            if self.opponent_pokemon.weather_turns == 0:
+                self.opponent_pokemon.weather_effect = ""
+                print(f"The weather cleared!")
+
     def process_turn(self, player_move_choice: Optional[int] = None) -> bool:
         if self.game_over:
             return False
 
         self.turn_count += 1
         print(f"\n--- Turn {self.turn_count}/{self.max_turns} ---")
+        
+        # Decay status effects
+        self._decay_status_effects()
 
-        if player_move_choice is None:
-            print(f"\n{self.player_name}'s Pokemon Moves:")
-            for i, move in enumerate(self.player_pokemon.moves, 1):
-                print(f"  {i}. {move.name} ({move.pokemon_type.value} Type) - Power: {move.power}")
-            try:
-                choice = int(input("Choose a move (1-2): ")) - 1
-                if choice < 0 or choice >= len(self.player_pokemon.moves):
-                    print("Invalid choice! Choosing randomly...")
-                    choice = random.randint(0, len(self.player_pokemon.moves) - 1)
-            except (ValueError, IndexError):
-                print("Invalid input! Choosing randomly...")
-                choice = random.randint(0, len(self.player_pokemon.moves) - 1)
-            player_move = self.player_pokemon.moves[choice]
+        # Check if player is disabled
+        if self.player_pokemon.disabled_turns > 0:
+            print(f"\n{self.player_pokemon.name} is disabled and can't attack!")
+            player_move = None
         else:
-            player_move = self.player_pokemon.moves[player_move_choice]
+            if player_move_choice is None:
+                print(f"\n{self.player_name}'s Pokemon Moves:")
+                for i, move in enumerate(self.player_pokemon.moves, 1):
+                    print(f"  {i}. {move.name} ({move.pokemon_type.value} Type) - Power: {move.power}")
+                try:
+                    choice = int(input("Choose a move (1-2): ")) - 1
+                    if choice < 0 or choice >= len(self.player_pokemon.moves):
+                        print("Invalid choice! Choosing randomly...")
+                        choice = random.randint(0, len(self.player_pokemon.moves) - 1)
+                except (ValueError, IndexError):
+                    print("Invalid input! Choosing randomly...")
+                    choice = random.randint(0, len(self.player_pokemon.moves) - 1)
+                player_move = self.player_pokemon.moves[choice]
+            else:
+                player_move = self.player_pokemon.moves[player_move_choice]
 
-        opponent_move = self.opponent_pokemon.get_random_move()
+        # Check if opponent is disabled
+        if self.opponent_pokemon.disabled_turns > 0:
+            opponent_move = None
+        else:
+            opponent_move = self.opponent_pokemon.get_random_move()
 
         player_speed = self.player_pokemon.level
         opponent_speed = self.opponent_pokemon.level
 
         if player_speed >= opponent_speed:
-            player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
-            print(f"\n{player_result['message']}")
-            if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
-                print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
+            if player_move:
+                player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
+                print(f"\n{player_result['message']}")
+                if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
+                    print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
 
-            if self.opponent_pokemon.is_fainted():
-                self._end_battle(self.player_name)
-                return False
-
-            opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
-            print(f"\n{opponent_result['message']}")
-            if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
-                print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
-
-            if self.player_pokemon.is_fainted():
-                new_pokemon = self.prompt_pokemon_switch()
-                if new_pokemon:
-                    self.switch_pokemon(new_pokemon)
-                else:
-                    self._end_battle(self.opponent_name)
+                if self.opponent_pokemon.is_fainted():
+                    self._end_battle(self.player_name)
                     return False
-                return True
+
+            if opponent_move:
+                opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
+                print(f"\n{opponent_result['message']}")
+                if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
+                    print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
+
+                if self.player_pokemon.is_fainted():
+                    new_pokemon = self.prompt_pokemon_switch()
+                    if new_pokemon:
+                        self.switch_pokemon(new_pokemon)
+                    else:
+                        self._end_battle(self.opponent_name)
+                        return False
+                    return True
+            else:
+                print(f"{self.opponent_pokemon.name} can't move!")
+
         else:
-            opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
-            print(f"\n{opponent_result['message']}")
-            if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
-                print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
+            if opponent_move:
+                opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
+                print(f"\n{opponent_result['message']}")
+                if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
+                    print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
 
-            if self.player_pokemon.is_fainted():
-                new_pokemon = self.prompt_pokemon_switch()
-                if new_pokemon:
-                    self.switch_pokemon(new_pokemon)
-                else:
-                    self._end_battle(self.opponent_name)
+                if self.player_pokemon.is_fainted():
+                    new_pokemon = self.prompt_pokemon_switch()
+                    if new_pokemon:
+                        self.switch_pokemon(new_pokemon)
+                    else:
+                        self._end_battle(self.opponent_name)
+                        return False
+                    return True
+            else:
+                print(f"{self.opponent_pokemon.name} can't move!")
+
+            if player_move:
+                player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
+                print(f"\n{player_result['message']}")
+                if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
+                    print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
+
+                if self.opponent_pokemon.is_fainted():
+                    self._end_battle(self.player_name)
                     return False
-                return True
-
-            player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
-            print(f"\n{player_result['message']}")
-            if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
-                print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
-
-            if self.opponent_pokemon.is_fainted():
-                self._end_battle(self.player_name)
-                return False
 
         if self.turn_count >= self.max_turns:
             self._end_battle("Draw")
@@ -643,7 +778,8 @@ class Game:
                         "name": move.name,
                         "power": move.power,
                         "accuracy": move.accuracy,
-                        "pokemon_type": move.pokemon_type.value
+                        "pokemon_type": move.pokemon_type.value,
+                        "effect": move.effect
                     }
                     for move in pokemon.moves
                 ]
@@ -682,7 +818,8 @@ class Game:
                         name=move_data["name"],
                         power=move_data["power"],
                         accuracy=move_data["accuracy"],
-                        pokemon_type=move_type
+                        pokemon_type=move_type,
+                        effect=move_data.get("effect", "")
                     )
                     moves.append(move)
 
