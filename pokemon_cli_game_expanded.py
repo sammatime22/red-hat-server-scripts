@@ -259,19 +259,18 @@ class Move:
         return damage
 
     def _get_type_effectiveness(self, defender_type: Type) -> float:
-        # Balanced type chart: each type has 2 advantages and 2 disadvantages
-        # Symmetric: if A does 2x to B, then B does 0.5x to A
-        # Physical types: Fire-Grass-Water loop + Flying-Ground interactions
-        # Mental types: Psychic-Fighting-Ghost triangle (each does 2x to the other two)
+        # Type chart with directional advantages:
+        # Grass -> Water, Fire -> Grass, Water -> Ground, Flying -> Grass,
+        # Ground -> Flying, Psychic -> Fighting, Fighting -> Ghost, Ghost -> Psychic
         effectiveness_chart = {
-            Type.FIRE: {Type.GRASS: 2.0, Type.FLYING: 2.0, Type.WATER: 0.5, Type.GROUND: 0.5, Type.FIRE: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0},
-            Type.WATER: {Type.FIRE: 2.0, Type.GROUND: 2.0, Type.GRASS: 0.5, Type.FLYING: 0.5, Type.WATER: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0},
-            Type.GRASS: {Type.WATER: 2.0, Type.FLYING: 2.0, Type.FIRE: 0.5, Type.GROUND: 0.5, Type.GRASS: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0},
-            Type.FLYING: {Type.WATER: 2.0, Type.GROUND: 2.0, Type.FIRE: 0.5, Type.GRASS: 0.5, Type.FLYING: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0},
-            Type.GROUND: {Type.FIRE: 2.0, Type.GRASS: 2.0, Type.WATER: 0.5, Type.FLYING: 0.5, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0},
-            Type.PSYCHIC: {Type.FIGHTING: 2.0, Type.GHOST: 2.0, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0},
-            Type.FIGHTING: {Type.PSYCHIC: 2.0, Type.GHOST: 2.0, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.FIGHTING: 1.0},
-            Type.GHOST: {Type.PSYCHIC: 2.0, Type.FIGHTING: 2.0, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.GHOST: 1.0},
+            Type.FIRE: {Type.GRASS: 2.0, Type.WATER: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.FIRE: 1.0},
+            Type.WATER: {Type.GROUND: 2.0, Type.GRASS: 0.5, Type.FIRE: 1.0, Type.FLYING: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.WATER: 1.0},
+            Type.GRASS: {Type.WATER: 2.0, Type.FIRE: 0.5, Type.FLYING: 0.5, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.GRASS: 1.0},
+            Type.FLYING: {Type.GRASS: 2.0, Type.GROUND: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.FLYING: 1.0},
+            Type.GROUND: {Type.FLYING: 2.0, Type.WATER: 0.5, Type.FIRE: 1.0, Type.GRASS: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.GROUND: 1.0},
+            Type.PSYCHIC: {Type.FIGHTING: 2.0, Type.GHOST: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0},
+            Type.FIGHTING: {Type.GHOST: 2.0, Type.PSYCHIC: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.FIGHTING: 1.0},
+            Type.GHOST: {Type.PSYCHIC: 2.0, Type.FIGHTING: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.GHOST: 1.0},
         }
         return effectiveness_chart.get(self.pokemon_type, {}).get(defender_type, 1.0)
 
@@ -911,17 +910,16 @@ The eight types you will encounter:
 TYPE ADVANTAGES:
 Every type has its strengths and weaknesses. Master these matchups!
 
-  🔥 FIRE is strong against Grass & Flying | weak to Water & Ground
-  💧 WATER is strong against Fire & Ground | weak to Grass & Flying
-  🌿 GRASS is strong against Water & Flying | weak to Fire & Ground
-  ✈️  FLYING is strong against Water & Ground | weak to Fire & Grass
-  ⛰️  GROUND is strong against Fire & Grass | weak to Water & Flying
-  💫 PSYCHIC is strong against Fighting & Ghost | weak to Fighting & Ghost
-  ✊ FIGHTING is strong against Psychic & Ghost | weak to Psychic & Ghost
-  👻 GHOST is strong against Psychic & Fighting | weak to Psychic & Fighting
+  🔥 FIRE is strong against Grass
+  💧 WATER is strong against Ground | weak to Grass
+  🌿 GRASS is strong against Water | weak to Fire & Flying
+  ✈️  FLYING is strong against Grass | weak to Ground
+  ⛰️  GROUND is strong against Flying | weak to Water
+  💫 PSYCHIC is strong against Fighting | weak to Ghost
+  ✊ FIGHTING is strong against Ghost | weak to Psychic
+  👻 GHOST is strong against Psychic | weak to Fighting
 
-Each type is perfectly balanced with 2 advantages and 2 disadvantages.
-Strategy and type coverage will be key to your victory!
+Study the type matchups and build a diverse team for victory!
 
 Your adventure awaits! Will you answer the call?
 """)
