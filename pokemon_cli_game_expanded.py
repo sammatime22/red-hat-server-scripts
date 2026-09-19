@@ -582,13 +582,15 @@ class Battle:
         print(f"\n{self.player_pokemon.name} fainted!")
         print(f"\n{self.player_name}, choose your next Pokemon:")
 
+        max_hp_width = max(len(str(p.max_hp)) for p in active_team) if active_team else 3
+
         for i, pokemon in enumerate(active_team, 1):
             hp_bar_length = 15
             hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
             hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
-            max_hp_width = len(str(pokemon.max_hp))
             current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
-            print(f"  {i}. {pokemon.name:<15} [{hp_bar}] {current_hp_str}/{pokemon.max_hp}")
+            max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
+            print(f"  {i}. {pokemon.name:<15} [{hp_bar}] {current_hp_str}/{max_hp_str}")
 
         try:
             choice = int(input("\nChoose Pokemon (or 0 to forfeit): ")) - 1
@@ -1146,6 +1148,8 @@ Available Types:
             print("\nYou don't have any Pokemon yet! Create a team first.")
             return
 
+        max_hp_width = max(len(str(p.max_hp)) for p in self.player_team) if self.player_team else 3
+
         for i, pokemon in enumerate(self.player_team, 1):
             hp_bar_length = 20
             hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
@@ -1157,9 +1161,9 @@ Available Types:
             exp_bar = "▓" * int(exp_bar_length * exp_percent) + "░" * (exp_bar_length - int(exp_bar_length * exp_percent))
 
             status = "☠️ DEAD" if pokemon.is_fainted() else "✅ ALIVE"
-            max_hp_width = len(str(pokemon.max_hp))
             current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
-            hp_str = f"{current_hp_str}/{pokemon.max_hp}"
+            max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
+            hp_str = f"{current_hp_str}/{max_hp_str}"
 
             print(f"\n{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
             print(f"   Type: {pokemon.pokemon_type.value:<10} | HP: [{hp_bar}] {hp_str}")
@@ -1264,13 +1268,14 @@ Available Types:
 
         # Let player choose which Pokemon to use
         print(f"\nChoose your Pokemon for battle:")
+        max_hp_width = max(len(str(p.max_hp)) for p in active_team) if active_team else 3
         for i, pokemon in enumerate(active_team, 1):
             hp_bar_length = 15
             hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
             hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
-            max_hp_width = len(str(pokemon.max_hp))
             current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
-            print(f"  {i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {current_hp_str}/{pokemon.max_hp}")
+            max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
+            print(f"  {i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {current_hp_str}/{max_hp_str}")
 
         try:
             choice = int(input("\nChoose Pokemon (number): ")) - 1
