@@ -945,7 +945,6 @@ Your adventure awaits! Will you answer the call?
                 elif choice == "4":
                     if not self.team_created:
                         self.create_team()
-                        self.team_created = True
                     else:
                         self.release_pokemon()
                 elif choice == "5":
@@ -1175,9 +1174,11 @@ Available Types:
 
         if self.player_team:
             print(f"\n✓ Your team is ready! {len(self.player_team)} Pokemon await your command!")
+            self.team_created = True
         else:
             print("\nNo Pokemon added. Generating a random team...")
             self.player_team = [PokemonFactory.create_random_pokemon(self.player_level) for _ in range(3)]
+            self.team_created = True
 
     def view_team(self):
         print("\n" + "=" * 70)
