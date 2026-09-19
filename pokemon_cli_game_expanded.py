@@ -56,7 +56,21 @@ class Move:
         if self.effect == "fly":
             if attacker.charging == "fly":
                 attacker.charging = ""
-                return self._execute_normal_attack(attacker, defender, damage_mult=1.0)
+                damage = self._calculate_damage(attacker, defender)
+                damage = int(damage * 1.0)
+                damage = max(1, damage) if damage > 0 else 0
+                defender.current_hp -= damage
+                message = f"{attacker.name} dive-bombed from the sky! {defender.name} took {damage} damage."
+                effectiveness = self._get_effectiveness_message(defender.pokemon_type)
+                if effectiveness:
+                    message += f" {effectiveness}"
+                return {
+                    "hit": True,
+                    "damage": damage,
+                    "message": message,
+                    "defender_hp": defender.current_hp,
+                    "is_protect": False,
+                }
             else:
                 attacker.charging = "fly"
                 return {
@@ -70,7 +84,21 @@ class Move:
         if self.effect == "dig":
             if attacker.charging == "dig":
                 attacker.charging = ""
-                return self._execute_normal_attack(attacker, defender, damage_mult=1.0)
+                damage = self._calculate_damage(attacker, defender)
+                damage = int(damage * 1.0)
+                damage = max(1, damage) if damage > 0 else 0
+                defender.current_hp -= damage
+                message = f"{attacker.name} struck from underground! {defender.name} took {damage} damage."
+                effectiveness = self._get_effectiveness_message(defender.pokemon_type)
+                if effectiveness:
+                    message += f" {effectiveness}"
+                return {
+                    "hit": True,
+                    "damage": damage,
+                    "message": message,
+                    "defender_hp": defender.current_hp,
+                    "is_protect": False,
+                }
             else:
                 attacker.charging = "dig"
                 return {
@@ -524,6 +552,12 @@ class Battle:
         """Get all non-fainted Pokemon from team"""
         return [p for p in self.player_team if not p.is_fainted()]
 
+    def _format_hp(self, pokemon: Pokemon) -> str:
+        """Format HP with proper alignment"""
+        max_hp_width = len(str(pokemon.max_hp))
+        current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+        return f"{current_hp_str}/{pokemon.max_hp}"
+
     def switch_pokemon(self, new_pokemon: Pokemon) -> bool:
         """Switch to a different Pokemon"""
         if new_pokemon.is_fainted():
@@ -532,7 +566,7 @@ class Battle:
             return False
         self.player_pokemon = new_pokemon
         print(f"\n{self.player_name} switched to {self.player_pokemon.name}!")
-        print(f"{self.player_pokemon.name} HP: {self.player_pokemon.current_hp}/{self.player_pokemon.max_hp}")
+        print(f"{self.player_pokemon.name} HP: {self._format_hp(self.player_pokemon)}")
         return True
 
     def prompt_pokemon_switch(self) -> Optional[Pokemon]:
@@ -552,7 +586,9 @@ class Battle:
             hp_bar_length = 15
             hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
             hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
-            print(f"  {i}. {pokemon.name:<15} [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
+            max_hp_width = len(str(pokemon.max_hp))
+            current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+            print(f"  {i}. {pokemon.name:<15} [{hp_bar}] {current_hp_str}/{pokemon.max_hp}")
 
         try:
             choice = int(input("\nChoose Pokemon (or 0 to forfeit): ")) - 1
@@ -631,7 +667,7 @@ class Battle:
                 player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
                 print(f"\n{player_result['message']}")
                 if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
-                    print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
+                    print(f"{self.opponent_pokemon.name} HP: {self._format_hp(self.opponent_pokemon)}")
 
                 if self.opponent_pokemon.is_fainted():
                     self._end_battle(self.player_name)
@@ -641,7 +677,7 @@ class Battle:
                 opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
                 print(f"\n{opponent_result['message']}")
                 if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
-                    print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
+                    print(f"{self.player_pokemon.name} HP: {self._format_hp(self.player_pokemon)}")
 
                 if self.player_pokemon.is_fainted():
                     new_pokemon = self.prompt_pokemon_switch()
@@ -659,7 +695,7 @@ class Battle:
                 opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
                 print(f"\n{opponent_result['message']}")
                 if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
-                    print(f"{self.player_pokemon.name} HP: {max(0, self.player_pokemon.current_hp)}/{self.player_pokemon.max_hp}")
+                    print(f"{self.player_pokemon.name} HP: {self._format_hp(self.player_pokemon)}")
 
                 if self.player_pokemon.is_fainted():
                     new_pokemon = self.prompt_pokemon_switch()
@@ -676,7 +712,7 @@ class Battle:
                 player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
                 print(f"\n{player_result['message']}")
                 if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
-                    print(f"{self.opponent_pokemon.name} HP: {max(0, self.opponent_pokemon.current_hp)}/{self.opponent_pokemon.max_hp}")
+                    print(f"{self.opponent_pokemon.name} HP: {self._format_hp(self.opponent_pokemon)}")
 
                 if self.opponent_pokemon.is_fainted():
                     self._end_battle(self.player_name)
@@ -1121,9 +1157,12 @@ Available Types:
             exp_bar = "▓" * int(exp_bar_length * exp_percent) + "░" * (exp_bar_length - int(exp_bar_length * exp_percent))
 
             status = "☠️ DEAD" if pokemon.is_fainted() else "✅ ALIVE"
+            max_hp_width = len(str(pokemon.max_hp))
+            current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+            hp_str = f"{current_hp_str}/{pokemon.max_hp}"
 
             print(f"\n{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
-            print(f"   Type: {pokemon.pokemon_type.value:<10} | HP: [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
+            print(f"   Type: {pokemon.pokemon_type.value:<10} | HP: [{hp_bar}] {hp_str}")
             print(f"   EXP: [{exp_bar}] {pokemon.experience}/100")
             print(f"   Moves: {', '.join(move.name for move in pokemon.moves)}")
 
@@ -1147,7 +1186,8 @@ Available Types:
 
         for i, pokemon in enumerate(self.player_team, 1):
             status = "☠️ DEAD" if pokemon.is_fainted() else "✅ ALIVE"
-            print(f"{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
+            level_str = str(pokemon.level).rjust(2)
+            print(f"{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {level_str} | {status}")
 
         try:
             choice = input("\nChoose a Pokemon (number) or 0 to cancel: ").strip()
@@ -1228,7 +1268,9 @@ Available Types:
             hp_bar_length = 15
             hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
             hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
-            print(f"  {i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {max(0, pokemon.current_hp)}/{pokemon.max_hp}")
+            max_hp_width = len(str(pokemon.max_hp))
+            current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+            print(f"  {i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {current_hp_str}/{pokemon.max_hp}")
 
         try:
             choice = int(input("\nChoose Pokemon (number): ")) - 1
