@@ -661,10 +661,10 @@ class Battle:
         else:
             opponent_move = self.opponent_pokemon.get_random_move()
 
-        player_speed = self.player_pokemon.level
-        opponent_speed = self.opponent_pokemon.level
+        # Randomly determine who attacks first
+        player_goes_first = random.choice([True, False])
 
-        if player_speed >= opponent_speed:
+        if player_goes_first:
             if player_move:
                 player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
                 print(f"\n{player_result['message']}")
