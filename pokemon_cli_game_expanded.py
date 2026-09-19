@@ -786,7 +786,7 @@ class Game:
         self.player_team: List[Pokemon] = []
         self.player_name = "Trainer"
         self.current_battle: Optional[Battle] = None
-        self.player_level = 20
+        self.player_level = 10
         self.story_progress = 0
         self.defeated_trainers = []
         self.total_wins = 0
@@ -842,7 +842,7 @@ class Game:
                 save_data = json.load(f)
 
             self.player_name = save_data.get("player_name", "Trainer")
-            self.player_level = save_data.get("player_level", 20)
+            self.player_level = save_data.get("player_level", 10)
             self.story_progress = save_data.get("story_progress", 0)
             self.total_wins = save_data.get("total_wins", 0)
             self.defeated_trainers = save_data.get("defeated_trainers", [])
