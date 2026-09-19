@@ -1077,6 +1077,10 @@ You receive the {guild_type.value} Guild Badge!
 Your team grew stronger through this battle!
 """)
                 print("=" * 70)
+
+                # Perform funeral for any fallen Pokemon
+                self.perform_funeral()
+
                 self.story_progress += 1
                 self.total_wins += 1
                 self.player_level += 1
@@ -1091,6 +1095,9 @@ Return when you are stronger, and we shall battle again!"
 You may challenge the Guild Master again after training your Pokemon further.
 """)
                 print("=" * 70)
+
+                # Perform funeral for any fallen Pokemon
+                self.perform_funeral()
 
         except KeyboardInterrupt:
             print("\n\nBattle interrupted!")
@@ -1217,6 +1224,32 @@ Available Types:
         except ValueError:
             print("Invalid input! Please enter a number.")
 
+    def perform_funeral(self):
+        """Remove fainted Pokemon and hold a funeral ceremony"""
+        fainted_pokemon = [p for p in self.player_team if p.is_fainted()]
+
+        if not fainted_pokemon:
+            return
+
+        print("\n" + "=" * 70)
+        print("A MOMENT OF SILENCE")
+        print("=" * 70)
+
+        for pokemon in fainted_pokemon:
+            print(f"""
+{pokemon.pokemon_type.emoji}  {pokemon.name} has passed on...
+
+A brave and noble Pokemon. {pokemon.name} fought with all their strength,
+and their spirit will live on in your heart forever.
+
+May {pokemon.name} rest in peace. 🌹
+""")
+
+        # Remove fainted Pokemon from team
+        self.player_team = [p for p in self.player_team if not p.is_fainted()]
+        print(f"\n{len(fainted_pokemon)} Pokemon laid to rest.")
+        print("=" * 70)
+
     def visit_pokecenter(self):
         print("\n" + "=" * 70)
         print("🏥 POKECENTER")
@@ -1338,6 +1371,9 @@ appears before you!
                 self.cash += cash_reward
                 print(f"  You received {cash_reward}¢!")
 
+                # Perform funeral for any fallen Pokemon
+                self.perform_funeral()
+
                 # Offer to catch the opponent's Pokemon if player team isn't full
                 if len(self.player_team) < 6:
                     if self.current_battle.offer_catch(self.current_battle.opponent_pokemon):
@@ -1346,6 +1382,9 @@ appears before you!
                 else:
                     print(f"\n{self.current_battle.opponent_pokemon.name} wants to join your team,")
                     print("but your team is full (6/6 Pokemon)!")
+            else:
+                # Perform funeral for any fallen Pokemon after defeat too
+                self.perform_funeral()
 
         except KeyboardInterrupt:
             print("\n\nBattle interrupted!")
