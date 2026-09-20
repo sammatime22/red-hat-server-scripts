@@ -233,12 +233,13 @@ class DuckAIClient:
                 raw_data={"error": error_msg}
             )
 
-    def _query_api(self, question: str) -> Response:
+    def _query_api(self, question: str, retry_count: int = 0) -> Response:
         """
         Query the DuckAI API using streaming.
 
         Args:
             question: The question to ask
+            retry_count: Internal counter for challenge retries
 
         Returns:
             Response object
@@ -301,7 +302,25 @@ class DuckAIClient:
                     }
                 )
             elif resp.status_code == 418:
-                # Challenge/verification required (likely DuckDuckGo bot detection)
+                # Challenge/verification required - try to extract and use challenge token
+                if self.debug:
+                    logger.debug(f"418 Challenge detected")
+                    logger.debug(f"Challenge response body: {resp.text[:200]}")
+
+                # Extract X-Vqd-Hash-1 from challenge response if present
+                if "x-vqd-hash-1" in resp.headers:
+                    challenge_hash = resp.headers["x-vqd-hash-1"]
+                    self._vqd_hash = challenge_hash
+                    if self.debug:
+                        logger.debug(f"✓ Extracted challenge hash from 418 response")
+
+                    # Retry the request with the challenge hash
+                    if retry_count < 2:
+                        if self.debug:
+                            logger.debug(f"Retrying with challenge hash (attempt {retry_count + 1})...")
+                        return self._query_api(question, retry_count=retry_count + 1)
+
+                # If no hash in response or retries exhausted, return challenge error
                 error_msg = "DuckAI detected this as automated access. Consider:"
                 error_msg += "\n- Using from a browser context"
                 error_msg += "\n- Using mock=True for testing"
