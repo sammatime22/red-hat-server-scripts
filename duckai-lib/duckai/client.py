@@ -97,11 +97,19 @@ class DuckAIClient:
             auth_url = self.api_endpoint.replace("/chat", "/auth/token")
             resp = self.session.get(auth_url, timeout=self.timeout, verify=self.verify_ssl)
 
+            if self.debug:
+                logger.debug(f"Auth/token response status: {resp.status_code}")
+                logger.debug(f"Auth/token response headers: {dict(resp.headers)}")
+
             # Extract Vqd-Hash from response headers for use in future requests
             if "x-vqd-hash-1" in resp.headers:
                 self._vqd_hash = resp.headers["x-vqd-hash-1"]
                 if self.debug:
-                    logger.debug(f"Got initial X-Vqd-Hash-1: {self._vqd_hash[:50]}...")
+                    logger.debug(f"✓ Got initial X-Vqd-Hash-1: {self._vqd_hash[:50]}...")
+            else:
+                if self.debug:
+                    logger.debug(f"⚠️  X-Vqd-Hash-1 not found in auth/token response headers")
+                    logger.debug(f"   Available headers: {list(resp.headers.keys())}")
 
             # Apply token refresh delay if configured
             if self.token_refresh_delay > 0:
@@ -136,11 +144,17 @@ class DuckAIClient:
             auth_url = self.api_endpoint.replace("/chat", "/auth/token")
             resp = self.session.get(auth_url, timeout=self.timeout, verify=self.verify_ssl)
 
+            if self.debug:
+                logger.debug(f"Auth/token response status: {resp.status_code}")
+
             # Extract Vqd-Hash from response headers
             if "x-vqd-hash-1" in resp.headers:
                 self._vqd_hash = resp.headers["x-vqd-hash-1"]
                 if self.debug:
-                    logger.debug(f"Token refreshed successfully")
+                    logger.debug(f"✓ Token refreshed successfully, got X-Vqd-Hash-1")
+            else:
+                if self.debug:
+                    logger.debug(f"⚠️  X-Vqd-Hash-1 not found in refresh response")
 
             # Apply token refresh delay if configured
             if self.token_refresh_delay > 0:
