@@ -374,14 +374,14 @@ class PokemonFactory:
         Move("Dig", 60, 1.0, Type.STONE, "Burrow and strike next turn", effect="dig"),
     ]
 
-    FIRE_POKEMON = [("Cyndaquil", 39), ("Flareon", 42), ("Ponyta", 35), ("Vulpix", 33), ("Growlithe", 36)]
-    WATER_POKEMON = [("Totodile", 39), ("Lapras", 45), ("Squirtle", 35), ("Psyduck", 33), ("Shellder", 36)]
-    GRASS_POKEMON = [("Chikorita", 39), ("Exeggcute", 37), ("Oddish", 33), ("Bellsprout", 33), ("Tangela", 38)]
-    FLYING_POKEMON = [("Pidgeotto", 38), ("Spearow", 32), ("Farfetch'd", 35), ("Doduo", 34), ("Aerodactyl", 40)]
-    PSYCHIC_POKEMON = [("Slowbro", 38), ("Jynx", 35), ("Alakazam", 41), ("Mr. Mime", 36), ("Drowzee", 34)]
-    GHOST_POKEMON = [("Haunter", 37), ("Gengar", 39), ("Misdreavus", 36), ("Lampent", 35), ("Golurk", 38)]
-    FIGHTING_POKEMON = [("Mankey", 30), ("Primeape", 38), ("Machamp", 40), ("Hitmonlee", 37), ("Poliwrath", 38)]
-    GROUND_POKEMON = [("Sandslash", 37), ("Dugtrio", 36), ("Rhyhorn", 35), ("Cubone", 32), ("Diglett", 30)]
+    FIRE_POKEMON = [("Quilava", 39), ("Charmeleon", 42), ("Ponyta", 35), ("Ninetales", 33), ("Arcanine", 36)]
+    WATER_POKEMON = [("Croconaw", 39), ("Lapras", 45), ("Wartortle", 35), ("Psyduck", 33), ("Shellder", 36)]
+    GRASS_POKEMON = [("Bayleef", 39), ("Exeggcute", 37), ("Gloom", 33), ("Weepinbell", 33), ("Tangela", 38)]
+    FLYING_POKEMON = [("Pidgeotto", 38), ("Spearow", 32), ("Farfetch'd", 35), ("Dodrio", 34), ("Aerodactyl", 40)]
+    PSYCHIC_POKEMON = [("Slowpoke", 38), ("Jynx", 35), ("Kadabra", 41), ("Mr. Mime", 36), ("Hypno", 34)]
+    GHOST_POKEMON = [("Haunter", 37), ("Lampent", 39), ("Mismagius", 36), ("Banette", 35), ("Golett", 38)]
+    FIGHTING_POKEMON = [("Primeape", 30), ("Machoke", 38), ("Hitmonchan", 40), ("Hitmonlee", 37), ("Poliwhirl", 38)]
+    GROUND_POKEMON = [("Sandslash", 37), ("Dugtrio", 36), ("Rhydon", 35), ("Marowak", 32), ("Graveler", 30)]
 
     @classmethod
     def create_random_pokemon(cls, level: int = 10) -> Pokemon:
