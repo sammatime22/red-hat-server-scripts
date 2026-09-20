@@ -1,0 +1,155 @@
+{
+  "player_name": "Sam",
+  "player_level": 13,
+  "story_progress": 3,
+  "total_wins": 3,
+  "defeated_trainers": [],
+  "cash": 1200,
+  "team_created": true,
+  "team": [
+    {
+      "name": "Primeape",
+      "pokemon_type": "Martial",
+      "level": 10,
+      "current_hp": 70,
+      "max_hp": 70,
+      "experience": 0,
+      "moves": [
+        {
+          "name": "Karate Chop",
+          "power": 40,
+          "accuracy": 1.0,
+          "pokemon_type": "Martial",
+          "effect": ""
+        },
+        {
+          "name": "Vital Throw",
+          "power": 40,
+          "accuracy": 1.0,
+          "pokemon_type": "Martial",
+          "effect": "vital_throw"
+        }
+      ]
+    },
+    {
+      "name": "Aerodactyl",
+      "pokemon_type": "Wind",
+      "level": 10,
+      "current_hp": 90,
+      "max_hp": 90,
+      "experience": 0,
+      "moves": [
+        {
+          "name": "Peck",
+          "power": 40,
+          "accuracy": 1.0,
+          "pokemon_type": "Wind",
+          "effect": ""
+        },
+        {
+          "name": "Fly",
+          "power": 60,
+          "accuracy": 1.0,
+          "pokemon_type": "Wind",
+          "effect": "fly"
+        }
+      ]
+    },
+    {
+      "name": "Dugtrio",
+      "pokemon_type": "Stone",
+      "level": 10,
+      "current_hp": 82,
+      "max_hp": 82,
+      "experience": 0,
+      "moves": [
+        {
+          "name": "Mud Slap",
+          "power": 40,
+          "accuracy": 1.0,
+          "pokemon_type": "Stone",
+          "effect": ""
+        },
+        {
+          "name": "Dig",
+          "power": 60,
+          "accuracy": 1.0,
+          "pokemon_type": "Stone",
+          "effect": "dig"
+        }
+      ]
+    },
+    {
+      "name": "Arcanine",
+      "pokemon_type": "Flame",
+      "level": 10,
+      "current_hp": 82,
+      "max_hp": 82,
+      "experience": 0,
+      "moves": [
+        {
+          "name": "Ember",
+          "power": 40,
+          "accuracy": 1.0,
+          "pokemon_type": "Flame",
+          "effect": ""
+        },
+        {
+          "name": "Sunny Day",
+          "power": 0,
+          "accuracy": 1.0,
+          "pokemon_type": "Flame",
+          "effect": "sunny_day"
+        }
+      ]
+    },
+    {
+      "name": "Tangela",
+      "pokemon_type": "Leaf",
+      "level": 10,
+      "current_hp": 61,
+      "max_hp": 86,
+      "experience": 0,
+      "moves": [
+        {
+          "name": "Razor Leaf",
+          "power": 40,
+          "accuracy": 1.0,
+          "pokemon_type": "Leaf",
+          "effect": ""
+        },
+        {
+          "name": "Absorb",
+          "power": 20,
+          "accuracy": 1.0,
+          "pokemon_type": "Leaf",
+          "effect": "absorb"
+        }
+      ]
+    },
+    {
+      "name": "Psyduck",
+      "pokemon_type": "Aqua",
+      "level": 10,
+      "current_hp": 52,
+      "max_hp": 76,
+      "experience": 0,
+      "moves": [
+        {
+          "name": "Aqua Gun",
+          "power": 40,
+          "accuracy": 1.0,
+          "pokemon_type": "Aqua",
+          "effect": ""
+        },
+        {
+          "name": "Rain Dance",
+          "power": 0,
+          "accuracy": 1.0,
+          "pokemon_type": "Aqua",
+          "effect": "rain_dance"
+        }
+      ]
+    }
+  ]
+}

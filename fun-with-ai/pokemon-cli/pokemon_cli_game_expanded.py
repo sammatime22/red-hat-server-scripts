@@ -1,0 +1,1524 @@
+#!/usr/bin/env python3
+"""
+Pokemon CLI Game - Expanded Gold/Silver Edition with Full Storyline
+Features 8 Pokemon types (Flame, Aqua, Leaf, Wind, Esper, Shadow, Martial, Stone)
+with full narrative campaign, NPC trainers, and 100-turn battles.
+"""
+
+import random
+import sys
+import time
+import json
+import os
+from dataclasses import dataclass
+from typing import List, Dict, Optional, Tuple
+from enum import Enum
+
+
+class Type(Enum):
+    FLAME = "Flame"
+    AQUA = "Aqua"
+    LEAF = "Leaf"
+    WIND = "Wind"
+    ESPER = "Esper"
+    SHADOW = "Shadow"
+    MARTIAL = "Martial"
+    STONE = "Stone"
+
+    @property
+    def emoji(self) -> str:
+        emoji_map = {
+            Type.FLAME: "🔥",
+            Type.AQUA: "💧",
+            Type.LEAF: "🌿",
+            Type.WIND: "✈️ ",
+            Type.ESPER: "💫",
+            Type.SHADOW: "👻",
+            Type.MARTIAL: "✊",
+            Type.STONE: "⛰️ ",
+        }
+        return emoji_map.get(self, "⚪")
+
+
+@dataclass
+class Move:
+    name: str
+    power: int
+    accuracy: float
+    pokemon_type: Type
+    description: str = ""
+    effect: str = ""
+
+    def execute(self, attacker: "Pokemon", defender: "Pokemon", player_is_attacker: bool = False) -> Dict:
+        if self.effect == "foresight":
+            return self._execute_protect(attacker, player_is_attacker)
+
+        if self.effect == "fly":
+            if attacker.charging == "fly":
+                attacker.charging = ""
+                damage = self._calculate_damage(attacker, defender)
+                damage = int(damage * 1.0)
+                damage = max(1, damage) if damage > 0 else 0
+                defender.current_hp -= damage
+                message = f"{attacker.name} dive-bombed from the sky! {defender.name} took {damage} damage."
+                effectiveness = self._get_effectiveness_message(defender.pokemon_type)
+                if effectiveness:
+                    message += f" {effectiveness}"
+                return {
+                    "hit": True,
+                    "damage": damage,
+                    "message": message,
+                    "defender_hp": defender.current_hp,
+                    "is_protect": False,
+                }
+            else:
+                attacker.charging = "fly"
+                return {
+                    "hit": True,
+                    "damage": 0,
+                    "message": f"{attacker.name} took to the skies! Will strike next turn!",
+                    "is_protect": False,
+                    "defender_hp": defender.current_hp,
+                }
+
+        if self.effect == "dig":
+            if attacker.charging == "dig":
+                attacker.charging = ""
+                damage = self._calculate_damage(attacker, defender)
+                damage = int(damage * 1.0)
+                damage = max(1, damage) if damage > 0 else 0
+                defender.current_hp -= damage
+                message = f"{attacker.name} struck from underground! {defender.name} took {damage} damage."
+                effectiveness = self._get_effectiveness_message(defender.pokemon_type)
+                if effectiveness:
+                    message += f" {effectiveness}"
+                return {
+                    "hit": True,
+                    "damage": damage,
+                    "message": message,
+                    "defender_hp": defender.current_hp,
+                    "is_protect": False,
+                }
+            else:
+                attacker.charging = "dig"
+                return {
+                    "hit": True,
+                    "damage": 0,
+                    "message": f"{attacker.name} burrowed underground! Will strike next turn!",
+                    "is_protect": False,
+                    "defender_hp": defender.current_hp,
+                }
+
+        if self.effect == "sunny_day":
+            attacker.weather_effect = "sun"
+            attacker.weather_turns = 5
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"The sun grew harsh! Flame attacks are boosted, Aqua attacks weakened for 5 turns! ☀️",
+                "is_protect": False,
+                "defender_hp": defender.current_hp,
+            }
+
+        if self.effect == "rain_dance":
+            defender.weather_effect = "rain"
+            defender.weather_turns = 5
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"Rain began to fall! Aqua attacks are boosted, Flame attacks weakened for 5 turns! 🌧️",
+                "is_protect": False,
+                "defender_hp": defender.current_hp,
+            }
+
+        if self.effect == "absorb":
+            if random.random() > self.accuracy:
+                return {"hit": False, "message": f"{attacker.name} used {self.name}, but missed!"}
+            damage = 20
+            defender.current_hp -= damage
+            heal = min(20, attacker.max_hp - attacker.current_hp)
+            attacker.current_hp += heal
+            return {
+                "hit": True,
+                "damage": damage,
+                "message": f"{attacker.name} used {self.name}! {defender.name} took {damage} damage. {attacker.name} absorbed {heal} HP! 💚",
+                "defender_hp": defender.current_hp,
+                "is_protect": False,
+            }
+
+        if self.effect == "hex":
+            defender.disabled_turns = 2
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"{attacker.name} cursed {defender.name}! {defender.name} is disabled for 2 turns! 👻",
+                "defender_hp": defender.current_hp,
+                "is_protect": False,
+            }
+
+        if self.effect == "vital_throw":
+            if random.random() > self.accuracy:
+                return {"hit": False, "message": f"{attacker.name} used {self.name}, but missed!"}
+            damage = 40
+            defender.current_hp -= damage
+            return {
+                "hit": True,
+                "damage": damage,
+                "message": f"{attacker.name} used {self.name}! {defender.name} took {damage} damage and is thrown to the bench!",
+                "defender_hp": defender.current_hp,
+                "is_protect": False,
+                "force_switch": True,
+            }
+
+        return self._execute_normal_attack(attacker, defender)
+
+    def _execute_normal_attack(self, attacker: "Pokemon", defender: "Pokemon", damage_mult: float = 1.0) -> Dict:
+        if random.random() > self.accuracy:
+            return {"hit": False, "message": f"{attacker.name} used {self.name}, but missed!"}
+
+        damage = self._calculate_damage(attacker, defender)
+        damage = int(damage * damage_mult)
+        damage = max(1, damage) if damage > 0 else 0
+        defender.current_hp -= damage
+
+        message = f"{attacker.name} used {self.name}! {defender.name} took {damage} damage."
+        effectiveness = self._get_effectiveness_message(defender.pokemon_type)
+        if effectiveness:
+            message += f" {effectiveness}"
+
+        return {
+            "hit": True,
+            "damage": damage,
+            "message": message,
+            "defender_hp": defender.current_hp,
+            "is_protect": False,
+        }
+
+    def _execute_protect(self, user: "Pokemon", player_is_user: bool) -> Dict:
+        secret_number = random.randint(1, 3)
+
+        if player_is_user:
+            try:
+                guess = int(input(f"\n{user.name} used Protect! Guess the secret number (1-3): ").strip())
+                if guess not in [1, 2, 3]:
+                    print("Invalid number! Protection failed.")
+                    return {
+                        "hit": True,
+                        "damage": 0,
+                        "message": f"{user.name} used Protect, but the guess was invalid! It failed!",
+                        "is_protect": False,
+                    }
+            except ValueError:
+                print("Invalid input! Protection failed.")
+                return {
+                    "hit": True,
+                    "damage": 0,
+                    "message": f"{user.name} used Protect, but failed!",
+                    "is_protect": False,
+                }
+        else:
+            guess = random.randint(1, 3)
+
+        if guess == secret_number:
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"{user.name} used Protect! Correct guess ({guess})! Attack blocked! 🛡️",
+                "is_protect": True,
+                "defender_hp": user.current_hp,
+            }
+        else:
+            return {
+                "hit": True,
+                "damage": 0,
+                "message": f"{user.name} used Protect! Wrong guess ({guess}, secret was {secret_number}). Protection failed!",
+                "is_protect": False,
+                "defender_hp": user.current_hp,
+            }
+
+    def _calculate_damage(self, attacker: "Pokemon", defender: "Pokemon") -> int:
+        base_damage = self.power
+        stab_bonus = 1.5 if self.pokemon_type == attacker.pokemon_type else 1.0
+        type_advantage = self._get_type_effectiveness(defender.pokemon_type)
+        critical = 1.5 if random.random() < 0.0625 else 1.0
+        
+        # Apply weather effects
+        weather_mult = 1.0
+        if attacker.weather_effect == "sun":
+            if self.pokemon_type == Type.FLAME:
+                weather_mult = 2.0
+            elif self.pokemon_type == Type.AQUA:
+                weather_mult = 0.5
+        elif attacker.weather_effect == "rain":
+            if self.pokemon_type == Type.AQUA:
+                weather_mult = 2.0
+            elif self.pokemon_type == Type.FLAME:
+                weather_mult = 0.5
+        
+        damage = int(base_damage * stab_bonus * type_advantage * critical * weather_mult * 0.85)
+        return damage
+
+    def _get_type_effectiveness(self, defender_type: Type) -> float:
+        # Type chart with directional advantages:
+        # Leaf -> Aqua, Flame -> Leaf, Aqua -> Stone, Wind -> Leaf,
+        # Stone -> Wind, Esper -> Martial, Martial -> Shadow, Shadow -> Esper
+        effectiveness_chart = {
+            Type.FLAME: {Type.LEAF: 2.0, Type.AQUA: 0.5, Type.WIND: 1.0, Type.STONE: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.FLAME: 1.0},
+            Type.AQUA: {Type.STONE: 2.0, Type.LEAF: 0.5, Type.FLAME: 1.0, Type.WIND: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.AQUA: 1.0},
+            Type.LEAF: {Type.AQUA: 2.0, Type.FLAME: 0.5, Type.WIND: 1.0, Type.STONE: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.LEAF: 1.0},
+            Type.WIND: {Type.LEAF: 2.0, Type.STONE: 0.5, Type.FLAME: 1.0, Type.AQUA: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.WIND: 1.0},
+            Type.STONE: {Type.WIND: 2.0, Type.AQUA: 0.5, Type.FLAME: 1.0, Type.LEAF: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.STONE: 1.0},
+            Type.ESPER: {Type.MARTIAL: 2.0, Type.SHADOW: 0.5, Type.FLAME: 1.0, Type.AQUA: 1.0, Type.LEAF: 1.0, Type.WIND: 1.0, Type.STONE: 1.0, Type.ESPER: 1.0},
+            Type.MARTIAL: {Type.SHADOW: 2.0, Type.ESPER: 0.5, Type.FLAME: 1.0, Type.AQUA: 1.0, Type.LEAF: 1.0, Type.WIND: 1.0, Type.STONE: 1.0, Type.MARTIAL: 1.0},
+            Type.SHADOW: {Type.ESPER: 2.0, Type.MARTIAL: 0.5, Type.FLAME: 1.0, Type.AQUA: 1.0, Type.LEAF: 1.0, Type.WIND: 1.0, Type.STONE: 1.0, Type.SHADOW: 1.0},
+        }
+        return effectiveness_chart.get(self.pokemon_type, {}).get(defender_type, 1.0)
+
+    def _get_effectiveness_message(self, defender_type: Type) -> Optional[str]:
+        effectiveness = self._get_type_effectiveness(defender_type)
+        if effectiveness > 1.0:
+            return "It's super effective!"
+        elif effectiveness < 1.0:
+            return "It's not very effective..."
+        return None
+
+
+@dataclass
+class Pokemon:
+    name: str
+    pokemon_type: Type
+    max_hp: int
+    current_hp: int
+    level: int
+    moves: List[Move]
+    experience: int = 0
+    disabled_turns: int = 0
+    charging: str = ""
+    weather_effect: str = ""
+    weather_turns: int = 0
+
+    def is_fainted(self) -> bool:
+        return self.current_hp <= 0
+
+    def can_attack(self) -> bool:
+        return self.disabled_turns <= 0
+
+    def get_random_move(self) -> Move:
+        return random.choice(self.moves)
+
+    def heal_full(self):
+        self.current_hp = self.max_hp
+
+    def gain_experience(self, amount: int) -> None:
+        """Gain experience points"""
+        self.experience += amount
+
+        # Level up every 100 experience points
+        while self.experience >= 100:
+            self.level_up()
+
+    def level_up(self) -> None:
+        """Increase level and reset experience"""
+        self.level += 1
+        self.experience -= 100
+        self.max_hp += 10
+        self.current_hp = self.max_hp
+        print(f"\n✨ {self.name} leveled up to Level {self.level}! ✨")
+
+    def get_experience_to_next_level(self) -> int:
+        """Get remaining experience needed for next level"""
+        return 100 - self.experience
+
+    def __str__(self) -> str:
+        return f"{self.name} (Lvl {self.level}) {self.pokemon_type.emoji} {self.pokemon_type.value} Type"
+
+
+class PokemonFactory:
+    FIRE_MOVES = [
+        Move("Ember", 40, 1.0, Type.FLAME, "A small flame attack"),
+        Move("Sunny Day", 0, 1.0, Type.FLAME, "Raises sun for 5 turns", effect="sunny_day"),
+    ]
+
+    WATER_MOVES = [
+        Move("Aqua Gun", 40, 1.0, Type.AQUA, "A water spray attack"),
+        Move("Rain Dance", 0, 1.0, Type.AQUA, "Brings rain for 5 turns", effect="rain_dance"),
+    ]
+
+    GRASS_MOVES = [
+        Move("Razor Leaf", 40, 1.0, Type.LEAF, "Cutting leaves attack"),
+        Move("Absorb", 20, 1.0, Type.LEAF, "Absorbs health from opponent", effect="absorb"),
+    ]
+
+    FLYING_MOVES = [
+        Move("Peck", 40, 1.0, Type.WIND, "Sharp pecking attack"),
+        Move("Fly", 60, 1.0, Type.WIND, "Fly away and strike next turn", effect="fly"),
+    ]
+
+    PSYCHIC_MOVES = [
+        Move("Confusion", 40, 1.0, Type.ESPER, "Esper wave attack"),
+        Move("Foresight", 0, 1.0, Type.ESPER, "Guess 1-3 to block damage", effect="foresight"),
+    ]
+
+    GHOST_MOVES = [
+        Move("Shadow Ball", 40, 1.0, Type.SHADOW, "Shadowly shadow attack"),
+        Move("Hex", 0, 1.0, Type.SHADOW, "Haunts opponent for 2 turns", effect="hex"),
+    ]
+
+    FIGHTING_MOVES = [
+        Move("Karate Chop", 40, 1.0, Type.MARTIAL, "Martial arts chop"),
+        Move("Vital Throw", 40, 1.0, Type.MARTIAL, "Throws opponent to bench", effect="vital_throw"),
+    ]
+
+    GROUND_MOVES = [
+        Move("Mud Slap", 40, 1.0, Type.STONE, "Mud slapping attack"),
+        Move("Dig", 60, 1.0, Type.STONE, "Burrow and strike next turn", effect="dig"),
+    ]
+
+    FIRE_POKEMON = [("Quilava", 39), ("Charmeleon", 42), ("Ponyta", 35), ("Ninetales", 33), ("Arcanine", 36)]
+    WATER_POKEMON = [("Croconaw", 39), ("Lapras", 45), ("Wartortle", 35), ("Psyduck", 33), ("Shellder", 36)]
+    GRASS_POKEMON = [("Bayleef", 39), ("Exeggcute", 37), ("Gloom", 33), ("Weepinbell", 33), ("Tangela", 38)]
+    FLYING_POKEMON = [("Pidgeotto", 38), ("Spearow", 32), ("Farfetch'd", 35), ("Dodrio", 34), ("Aerodactyl", 40)]
+    PSYCHIC_POKEMON = [("Slowpoke", 38), ("Jynx", 35), ("Kadabra", 41), ("Mr. Mime", 36), ("Hypno", 34)]
+    GHOST_POKEMON = [("Haunter", 37), ("Lampent", 39), ("Mismagius", 36), ("Banette", 35), ("Golett", 38)]
+    FIGHTING_POKEMON = [("Primeape", 30), ("Machoke", 38), ("Hitmonchan", 40), ("Hitmonlee", 37), ("Poliwhirl", 38)]
+    GROUND_POKEMON = [("Sandslash", 37), ("Dugtrio", 36), ("Rhydon", 35), ("Marowak", 32), ("Graveler", 30)]
+
+    @classmethod
+    def create_random_pokemon(cls, level: int = 10) -> Pokemon:
+        pokemon_type = random.choice(list(Type))
+
+        type_map = {
+            Type.FLAME: (cls.FIRE_POKEMON, cls.FIRE_MOVES),
+            Type.AQUA: (cls.WATER_POKEMON, cls.WATER_MOVES),
+            Type.LEAF: (cls.GRASS_POKEMON, cls.GRASS_MOVES),
+            Type.WIND: (cls.FLYING_POKEMON, cls.FLYING_MOVES),
+            Type.ESPER: (cls.PSYCHIC_POKEMON, cls.PSYCHIC_MOVES),
+            Type.SHADOW: (cls.GHOST_POKEMON, cls.GHOST_MOVES),
+            Type.MARTIAL: (cls.FIGHTING_POKEMON, cls.FIGHTING_MOVES),
+            Type.STONE: (cls.GROUND_POKEMON, cls.GROUND_MOVES),
+        }
+
+        pokemon_list, move_list = type_map[pokemon_type]
+        name, base_level = random.choice(pokemon_list)
+        moves = list(move_list)  # Use all moves for this type
+
+        max_hp = base_level * 2 + level
+        return Pokemon(name=name, pokemon_type=pokemon_type, max_hp=max_hp, current_hp=max_hp, level=level, moves=moves)
+
+    @classmethod
+    def create_trainer_pokemon(cls, pokemon_type: Type, level: int = 10) -> Pokemon:
+        type_map = {
+            Type.FLAME: (cls.FIRE_POKEMON, cls.FIRE_MOVES),
+            Type.AQUA: (cls.WATER_POKEMON, cls.WATER_MOVES),
+            Type.LEAF: (cls.GRASS_POKEMON, cls.GRASS_MOVES),
+            Type.WIND: (cls.FLYING_POKEMON, cls.FLYING_MOVES),
+            Type.ESPER: (cls.PSYCHIC_POKEMON, cls.PSYCHIC_MOVES),
+            Type.SHADOW: (cls.GHOST_POKEMON, cls.GHOST_MOVES),
+            Type.MARTIAL: (cls.FIGHTING_POKEMON, cls.FIGHTING_MOVES),
+            Type.STONE: (cls.GROUND_POKEMON, cls.GROUND_MOVES),
+        }
+
+        pokemon_list, move_list = type_map[pokemon_type]
+        name, base_level = random.choice(pokemon_list)
+        moves = list(move_list)  # Use all moves for this type
+
+        max_hp = base_level * 2 + level
+        return Pokemon(name=name, pokemon_type=pokemon_type, max_hp=max_hp, current_hp=max_hp, level=level, moves=moves)
+
+
+@dataclass
+class Trainer:
+    name: str
+    title: str
+    team: List[Pokemon]
+    dialogue: Dict[str, str]
+
+    def get_intro_dialogue(self) -> str:
+        return self.dialogue.get("intro", f"I am {self.name}, the {self.title}!")
+
+    def get_victory_dialogue(self) -> str:
+        return self.dialogue.get("victory", "You've won this battle. Well done!")
+
+    def get_defeat_dialogue(self) -> str:
+        return self.dialogue.get("defeat", "I have been defeated... Impressive!")
+
+
+class TrainerFactory:
+    TRAINERS = [
+        Trainer(
+            name="Brock",
+            title="Rock Specialist",
+            team=[],
+            dialogue={
+                "intro": "I am Brock, the Rock-type specialist! My Pokemon are solid as stone!",
+                "victory": "Your Pokemon are strong, but not strong enough against my rocks!",
+                "defeat": "Incredible! I must reassess my training methods!",
+                "commentary": "This battle is just beginning!",
+            }
+        ),
+        Trainer(
+            name="Misty",
+            title="Aqua Master",
+            team=[],
+            dialogue={
+                "intro": "Hi there! I'm Misty, a Aqua-type master! Let's see your Pokemon!",
+                "victory": "My Aqua Pokemon are unbeatable! You need more training!",
+                "defeat": "That was amazing! Your bond with your Pokemon is strong!",
+                "commentary": "Come on, you can do better than that!",
+            }
+        ),
+        Trainer(
+            name="Lt. Surge",
+            title="Electric Champion",
+            team=[],
+            dialogue={
+                "intro": "Welcome, soldier! Lt. Surge here. Prepare for battle!",
+                "victory": "The electric corps will crush you!",
+                "defeat": "You've got guts, kid! I respect that!",
+                "commentary": "Electrifying battle we're having!",
+            }
+        ),
+        Trainer(
+            name="Erika",
+            title="Leaf Specialist",
+            team=[],
+            dialogue={
+                "intro": "Welcome. I am Erika, keeper of the grass garden.",
+                "victory": "My flowers are more beautiful than your Pokemon!",
+                "defeat": "Perhaps your Pokemon have their own beauty...",
+                "commentary": "What a graceful battle this is...",
+            }
+        ),
+        Trainer(
+            name="Blaine",
+            title="Flame Master",
+            team=[],
+            dialogue={
+                "intro": "Heh heh heh! I'm Blaine, Master of Flame! Feel the heat!",
+                "victory": "Volcanoes are no match for the strength of my flames!",
+                "defeat": "Hot diggity! What an intense battle!",
+                "commentary": "This is getting hotter!",
+            }
+        ),
+        Trainer(
+            name="Giovanni",
+            title="Shadow Master",
+            team=[],
+            dialogue={
+                "intro": "I am Giovanni, master of Team Rocket. You dare challenge me?",
+                "victory": "The power of darkness cannot be overcome!",
+                "defeat": "Impossible! The power of Team Rocket rejected!",
+                "commentary": "Interesting... Your Pokemon have hidden strength...",
+            }
+        ),
+    ]
+
+    @classmethod
+    def create_trainer(cls, trainer_template: Trainer, level: int) -> Trainer:
+        team = [
+            PokemonFactory.create_random_pokemon(level),
+            PokemonFactory.create_random_pokemon(level),
+            PokemonFactory.create_random_pokemon(level),
+        ]
+        return Trainer(
+            name=trainer_template.name,
+            title=trainer_template.title,
+            team=team,
+            dialogue=trainer_template.dialogue
+        )
+
+
+class Battle:
+    def __init__(self, player_pokemon: Pokemon, opponent_pokemon: Pokemon, player_name: str = "Trainer", opponent_name: str = "Opponent", max_turns: int = 100, player_team: List[Pokemon] = None):
+        self.player_pokemon = player_pokemon
+        self.opponent_pokemon = opponent_pokemon
+        self.player_name = player_name
+        self.opponent_name = opponent_name
+        self.turn_count = 0
+        self.max_turns = max_turns
+        self.battle_log: List[str] = []
+        self.game_over = False
+        self.winner: Optional[str] = None
+        self.player_team = player_team or [player_pokemon]
+        self.opponent_team = [opponent_pokemon]
+
+    def start(self):
+        print("\n" + "=" * 70)
+        print("POKEMON BATTLE START!")
+        print("=" * 70)
+        print(f"\n{self.player_name}'s Pokemon: {self.player_pokemon}")
+        print(f"{self.opponent_name}'s Pokemon: {self.opponent_pokemon}")
+        print(f"Team Size: {len([p for p in self.player_team if not p.is_fainted()])}/{len(self.player_team)} Pokemon remaining")
+        print("\n" + "-" * 70)
+
+    def get_active_team(self) -> List[Pokemon]:
+        """Get all non-fainted Pokemon from team"""
+        return [p for p in self.player_team if not p.is_fainted()]
+
+    def _format_hp(self, pokemon: Pokemon) -> str:
+        """Format HP with proper alignment"""
+        max_hp_width = len(str(pokemon.max_hp))
+        current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+        return f"{current_hp_str}/{pokemon.max_hp}"
+
+    def switch_pokemon(self, new_pokemon: Pokemon) -> bool:
+        """Switch to a different Pokemon"""
+        if new_pokemon.is_fainted():
+            return False
+        if new_pokemon == self.player_pokemon:
+            return False
+        self.player_pokemon = new_pokemon
+        print(f"\n{self.player_name} switched to {self.player_pokemon.name}!")
+        print(f"{self.player_pokemon.name} HP: {self._format_hp(self.player_pokemon)}")
+        return True
+
+    def prompt_pokemon_switch(self) -> Optional[Pokemon]:
+        """Prompt player to switch Pokemon after fainting"""
+        active_team = self.get_active_team()
+
+        if not active_team:
+            return None
+
+        if len(active_team) == 1 and active_team[0] == self.player_pokemon:
+            return None
+
+        print(f"\n{self.player_pokemon.name} fainted!")
+        print(f"\n{self.player_name}, choose your next Pokemon:")
+
+        max_hp_width = max(len(str(p.max_hp)) for p in active_team) if active_team else 3
+
+        for i, pokemon in enumerate(active_team, 1):
+            hp_bar_length = 15
+            hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
+            hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
+            current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+            max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
+            print(f"  {i}. {pokemon.name:<15} [{hp_bar}] {current_hp_str}/{max_hp_str}")
+
+        try:
+            choice = int(input("\nChoose Pokemon (or 0 to forfeit): ")) - 1
+            if choice == -1:
+                return None
+            if 0 <= choice < len(active_team):
+                selected = active_team[choice]
+                if selected != self.player_pokemon:
+                    return selected
+        except (ValueError, IndexError):
+            pass
+
+        return None
+
+    def _decay_status_effects(self):
+        """Decrement status effect counters at the start of each turn"""
+        if self.player_pokemon.disabled_turns > 0:
+            self.player_pokemon.disabled_turns -= 1
+        if self.opponent_pokemon.disabled_turns > 0:
+            self.opponent_pokemon.disabled_turns -= 1
+        
+        if self.player_pokemon.weather_turns > 0:
+            self.player_pokemon.weather_turns -= 1
+            if self.player_pokemon.weather_turns == 0:
+                self.player_pokemon.weather_effect = ""
+                print(f"The weather cleared!")
+        
+        if self.opponent_pokemon.weather_turns > 0:
+            self.opponent_pokemon.weather_turns -= 1
+            if self.opponent_pokemon.weather_turns == 0:
+                self.opponent_pokemon.weather_effect = ""
+                print(f"The weather cleared!")
+
+    def process_turn(self, player_move_choice: Optional[int] = None) -> bool:
+        if self.game_over:
+            return False
+
+        self.turn_count += 1
+        print(f"\n--- Turn {self.turn_count}/{self.max_turns} ---")
+
+        # Decay status effects
+        self._decay_status_effects()
+
+        # Check if player is charging (Dig/Fly)
+        if self.player_pokemon.charging:
+            charging_move_type = self.player_pokemon.charging
+            # Find the move that matches the charging type
+            player_move = None
+            for move in self.player_pokemon.moves:
+                if move.effect == charging_move_type:
+                    player_move = move
+                    break
+            print(f"\n{self.player_pokemon.name} is completing their {charging_move_type.capitalize()} attack!")
+        # Check if player is disabled
+        elif self.player_pokemon.disabled_turns > 0:
+            print(f"\n{self.player_pokemon.name} is disabled and can't attack!")
+            player_move = None
+        else:
+            if player_move_choice is None:
+                print(f"\n{self.player_name}'s Pokemon Moves:")
+                for i, move in enumerate(self.player_pokemon.moves, 1):
+                    print(f"  {i}. {move.name} ({move.pokemon_type.value} Type) - Power: {move.power}")
+                try:
+                    choice = int(input("Choose a move (1-2): ")) - 1
+                    if choice < 0 or choice >= len(self.player_pokemon.moves):
+                        print("Invalid choice! Choosing randomly...")
+                        choice = random.randint(0, len(self.player_pokemon.moves) - 1)
+                except (ValueError, IndexError):
+                    print("Invalid input! Choosing randomly...")
+                    choice = random.randint(0, len(self.player_pokemon.moves) - 1)
+                player_move = self.player_pokemon.moves[choice]
+            else:
+                player_move = self.player_pokemon.moves[player_move_choice]
+
+        # Check if opponent is disabled OR player is charging (can't attack while underground/in sky)
+        if self.opponent_pokemon.disabled_turns > 0 or self.player_pokemon.charging:
+            opponent_move = None
+        else:
+            opponent_move = self.opponent_pokemon.get_random_move()
+
+        # Randomly determine who attacks first
+        player_goes_first = random.choice([True, False])
+
+        if player_goes_first:
+            if player_move:
+                player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
+                print(f"\n{player_result['message']}")
+                if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
+                    print(f"{self.opponent_pokemon.name} HP: {self._format_hp(self.opponent_pokemon)}")
+
+                if self.opponent_pokemon.is_fainted():
+                    self._end_battle(self.player_name)
+                    return False
+
+            if opponent_move:
+                opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
+                print(f"\n{opponent_result['message']}")
+                if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
+                    print(f"{self.player_pokemon.name} HP: {self._format_hp(self.player_pokemon)}")
+
+                if self.player_pokemon.is_fainted():
+                    new_pokemon = self.prompt_pokemon_switch()
+                    if new_pokemon:
+                        self.switch_pokemon(new_pokemon)
+                    else:
+                        self._end_battle(self.opponent_name)
+                        return False
+                    return True
+            else:
+                if self.player_pokemon.charging:
+                    print(f"{self.opponent_pokemon.name} can't hit {self.player_pokemon.name} while they're underground!" if self.player_pokemon.charging == "dig" else f"{self.opponent_pokemon.name} can't hit {self.player_pokemon.name} while they're in the sky!")
+                else:
+                    print(f"{self.opponent_pokemon.name} can't move!")
+
+        else:
+            if opponent_move:
+                opponent_result = opponent_move.execute(self.opponent_pokemon, self.player_pokemon, player_is_attacker=False)
+                print(f"\n{opponent_result['message']}")
+                if opponent_result.get('damage', 0) > 0 or not opponent_result.get('is_protect', False):
+                    print(f"{self.player_pokemon.name} HP: {self._format_hp(self.player_pokemon)}")
+
+                if self.player_pokemon.is_fainted():
+                    new_pokemon = self.prompt_pokemon_switch()
+                    if new_pokemon:
+                        self.switch_pokemon(new_pokemon)
+                    else:
+                        self._end_battle(self.opponent_name)
+                        return False
+                    return True
+            else:
+                if self.player_pokemon.charging:
+                    print(f"{self.opponent_pokemon.name} can't hit {self.player_pokemon.name} while they're underground!" if self.player_pokemon.charging == "dig" else f"{self.opponent_pokemon.name} can't hit {self.player_pokemon.name} while they're in the sky!")
+                else:
+                    print(f"{self.opponent_pokemon.name} can't move!")
+
+            if player_move:
+                player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
+                print(f"\n{player_result['message']}")
+                if player_result.get('damage', 0) > 0 or not player_result.get('is_protect', False):
+                    print(f"{self.opponent_pokemon.name} HP: {self._format_hp(self.opponent_pokemon)}")
+
+                if self.opponent_pokemon.is_fainted():
+                    self._end_battle(self.player_name)
+                    return False
+
+        if self.turn_count >= self.max_turns:
+            self._end_battle("Draw")
+            return False
+
+        return True
+
+    def _end_battle(self, winner: str):
+        self.game_over = True
+        self.winner = winner
+
+        print("\n" + "=" * 70)
+        if winner == "Draw":
+            print("BATTLE DRAW!")
+            print(f"Reached the 100-turn limit. Both Pokemon are still standing!")
+        else:
+            print(f"BATTLE OVER! {winner} WINS!")
+            if winner == self.player_name:
+                print(f"\n{self.opponent_pokemon.name} fainted!")
+                print(f"\n{self.player_pokemon.name} wins the battle!")
+            else:
+                print(f"\n{self.player_pokemon.name} fainted!")
+                print(f"\n{self.opponent_pokemon.name} wins the battle!")
+        print("=" * 70)
+
+    def offer_catch(self, pokemon_to_catch: Pokemon) -> bool:
+        """Offer player a chance to catch the defeated Pokemon"""
+        print(f"\n{pokemon_to_catch.name} {pokemon_to_catch.pokemon_type.emoji} has been defeated!")
+        print(f"Would you like to catch this {pokemon_to_catch.pokemon_type.value}-type Pokemon?")
+
+        # Use party size as max number
+        party_size = len(self.player_team)
+        print(f"\nI'm thinking of a number between 1 and {party_size}...")
+        print("If you guess correctly, you can add it to your team!")
+
+        secret_number = random.randint(1, party_size)
+
+        try:
+            guess = int(input(f"\nGuess a number (1-{party_size}): "))
+            if 1 <= guess <= party_size:
+                if guess == secret_number:
+                    print(f"\n🎉 Correct! The number was {secret_number}!")
+                    print(f"You caught {pokemon_to_catch.name} {pokemon_to_catch.pokemon_type.emoji}!")
+                    pokemon_to_catch.heal_full()
+                    return True
+                else:
+                    print(f"\n❌ Wrong! The number was {secret_number}.")
+                    print(f"{pokemon_to_catch.name} got away!")
+                    return False
+            else:
+                print(f"Invalid number! The Pokemon got away!")
+                return False
+        except (ValueError, KeyboardInterrupt):
+            print("Invalid input! The Pokemon got away!")
+            return False
+
+    def run_auto_battle(self) -> str:
+        self.start()
+        while not self.game_over and self.process_turn(random.randint(0, 1)):
+            pass
+        return self.winner
+
+
+class Game:
+    SAVE_FILE = "pokemon_save.json"
+
+    def __init__(self):
+        self.player_team: List[Pokemon] = []
+        self.player_name = "Trainer"
+        self.current_battle: Optional[Battle] = None
+        self.player_level = 10
+        self.story_progress = 0
+        self.defeated_trainers = []
+        self.total_wins = 0
+        self.cash = 0
+        self.team_created = False
+
+    def save_game(self):
+        save_data = {
+            "player_name": self.player_name,
+            "player_level": self.player_level,
+            "story_progress": self.story_progress,
+            "total_wins": self.total_wins,
+            "defeated_trainers": self.defeated_trainers,
+            "cash": self.cash,
+            "team_created": self.team_created,
+            "team": []
+        }
+
+        for pokemon in self.player_team:
+            pokemon_data = {
+                "name": pokemon.name,
+                "pokemon_type": pokemon.pokemon_type.value,
+                "level": pokemon.level,
+                "current_hp": pokemon.current_hp,
+                "max_hp": pokemon.max_hp,
+                "experience": pokemon.experience,
+                "moves": [
+                    {
+                        "name": move.name,
+                        "power": move.power,
+                        "accuracy": move.accuracy,
+                        "pokemon_type": move.pokemon_type.value,
+                        "effect": move.effect
+                    }
+                    for move in pokemon.moves
+                ]
+            }
+            save_data["team"].append(pokemon_data)
+
+        try:
+            with open(self.SAVE_FILE, 'w') as f:
+                json.dump(save_data, f, indent=2)
+            print(f"\n✓ Game saved successfully!")
+        except Exception as e:
+            print(f"\n✗ Error saving game: {e}")
+
+    def load_game(self) -> bool:
+        if not os.path.exists(self.SAVE_FILE):
+            return False
+
+        try:
+            with open(self.SAVE_FILE, 'r') as f:
+                save_data = json.load(f)
+
+            self.player_name = save_data.get("player_name", "Trainer")
+            self.player_level = save_data.get("player_level", 10)
+            self.story_progress = save_data.get("story_progress", 0)
+            self.total_wins = save_data.get("total_wins", 0)
+            self.defeated_trainers = save_data.get("defeated_trainers", [])
+            self.cash = save_data.get("cash", 0)
+            self.team_created = save_data.get("team_created", True)
+
+            self.player_team = []
+            for pokemon_data in save_data.get("team", []):
+                pokemon_type = Type[pokemon_data["pokemon_type"].upper()]
+                moves = []
+                for move_data in pokemon_data.get("moves", []):
+                    move_type = Type[move_data["pokemon_type"].upper()]
+                    move = Move(
+                        name=move_data["name"],
+                        power=move_data["power"],
+                        accuracy=move_data["accuracy"],
+                        pokemon_type=move_type,
+                        effect=move_data.get("effect", "")
+                    )
+                    moves.append(move)
+
+                pokemon = Pokemon(
+                    name=pokemon_data["name"],
+                    pokemon_type=pokemon_type,
+                    max_hp=pokemon_data["max_hp"],
+                    current_hp=pokemon_data["current_hp"],
+                    level=pokemon_data["level"],
+                    moves=moves,
+                    experience=pokemon_data.get("experience", 0)
+                )
+                self.player_team.append(pokemon)
+
+            return True
+        except Exception as e:
+            print(f"\n✗ Error loading game: {e}")
+            return False
+
+    def print_story_intro(self):
+        print("\n" + "=" * 70)
+        print("POKEMON: THE LEGEND OF POWER")
+        print("Gold & Silver Edition - Expanded")
+        print("=" * 70)
+        print("""
+Welcome, young trainer! You've embarked on an extraordinary journey to become
+a Pokemon Master. The land is filled with eight elemental guilds, each guarding
+ancient Pokemon mysteries.
+
+Your quest: Challenge the eight guild masters, each specializing in a different
+Pokemon type. Prove your worth, and you may uncover the legendary Pokemon that
+has been hidden for centuries.
+
+The eight types you will encounter:
+  🔥 FLAME - Masters of Passion and Fury
+  💧 AQUA - Keepers of the Tides and Currents
+  🌿 LEAF - Guardians of Life and Growth
+  ✈️  WIND - Riders of the Winds
+  💫 ESPER - Seers of the Mind
+  👻 SHADOW - Whispers from the Other Side
+  ✊ MARTIAL - Champions of Combat
+  ⛰️  STONE - Shakers of the Earth
+
+TYPE ADVANTAGES:
+Every type has its strengths and weaknesses. Master these matchups!
+
+  🔥 FLAME is strong against Leaf | weak to Aqua
+  💧 AQUA is strong against Stone | weak to Leaf
+  🌿 LEAF is strong against Aqua | weak to Flame
+  ✈️  WIND is strong against Leaf | weak to Stone
+  ⛰️  STONE is strong against Wind | weak to Aqua
+  💫 ESPER is strong against Martial | weak to Shadow
+  ✊ MARTIAL is strong against Shadow | weak to Esper
+  👻 SHADOW is strong against Esper | weak to Martial
+
+Study the type matchups and build a diverse team for victory!
+
+Your adventure awaits! Will you answer the call?
+""")
+        print("=" * 70)
+
+    def main_menu(self):
+        while True:
+            print("\n" + "=" * 70)
+            print("POKEMON QUEST - MAIN MENU")
+            print("=" * 70)
+            print(f"\nTrainer: {self.player_name} | Level: {self.player_level} | Wins: {self.total_wins}")
+            print(f"Cash: {self.cash}¢ | Story Progress: {self.story_progress}/8 Guild Masters Defeated")
+            print("\n1. Start a Battle")
+            print("2. Challenge a Guild Master (Story Mode)")
+            print("3. View Your Pokemon")
+
+            # Show "Create a Custom Team" only if team hasn't been created yet
+            if not self.team_created:
+                print("4. Create a Custom Team")
+                print("5. Release a Pokemon")
+                print("6. Visit PokéCenter")
+                print("7. View Guild Status")
+                print("8. Exit")
+                max_option = 8
+            else:
+                print("4. Release a Pokemon")
+                print("5. Visit PokéCenter")
+                print("6. View Guild Status")
+                print("7. Exit")
+                max_option = 7
+
+            try:
+                choice = input(f"\nChoose an option (1-{max_option}): ").strip()
+                if choice == "1":
+                    self.start_battle()
+                elif choice == "2":
+                    self.challenge_guild_master()
+                elif choice == "3":
+                    self.view_team()
+                elif choice == "4":
+                    if not self.team_created:
+                        self.create_team()
+                    else:
+                        self.release_pokemon()
+                elif choice == "5":
+                    if not self.team_created:
+                        self.release_pokemon()
+                    else:
+                        self.visit_pokecenter()
+                elif choice == "6":
+                    if not self.team_created:
+                        self.visit_pokecenter()
+                    else:
+                        self.view_guild_status()
+                elif choice == "7":
+                    if not self.team_created:
+                        self.view_guild_status()
+                    else:
+                        self.print_farewell()
+                        sys.exit(0)
+                elif choice == "8" and not self.team_created:
+                    self.print_farewell()
+                    sys.exit(0)
+                else:
+                    print("Invalid choice! Please try again.")
+            except KeyboardInterrupt:
+                print("\n\nGame interrupted. Saving progress...")
+                self.save_game()
+                print("Goodbye!")
+                sys.exit(0)
+
+    def print_farewell(self):
+        print("\n" + "=" * 70)
+        print("THANK YOU FOR PLAYING POKEMON QUEST!")
+        print("=" * 70)
+        print(f"""
+Your Journey Summary:
+- Trainer Name: {self.player_name}
+- Guild Masters Defeated: {self.story_progress}/8
+- Total Battles Won: {self.total_wins}
+- Pokemon Team Size: {len(self.player_team)}
+
+The legend of your adventures will be remembered! Until next time, trainer!
+""")
+        print("=" * 70)
+        self.save_game()
+
+    def view_guild_status(self):
+        guilds = [
+            ("Flame Guild", "Masters of Passion and Fury"),
+            ("Aqua Guild", "Keepers of the Tides"),
+            ("Leaf Guild", "Guardians of Life"),
+            ("Wind Guild", "Riders of the Winds"),
+            ("Esper Guild", "Seers of the Mind"),
+            ("Shadow Guild", "Whispers from Beyond"),
+            ("Martial Guild", "Champions of Combat"),
+            ("Stone Guild", "Shakers of the Earth"),
+        ]
+
+        print("\n" + "=" * 70)
+        print("GUILD MASTER STATUS")
+        print("=" * 70)
+        for i, (guild_name, description) in enumerate(guilds, 1):
+            status = "✓ DEFEATED" if i <= self.story_progress else "⊗ Not Yet Challenged"
+            print(f"\n{i}. {guild_name:<20} - {description}")
+            print(f"   Status: {status}")
+        print("\n" + "=" * 70)
+
+    def challenge_guild_master(self):
+        if not self.player_team:
+            print("\nYou don't have any Pokemon! Create a team first.")
+            return
+
+        guilds = [
+            ("Flame Guild Master Blaine", Type.FLAME, "Blaine", "Flame Master"),
+            ("Aqua Guild Master Misty", Type.AQUA, "Misty", "Aqua Master"),
+            ("Leaf Guild Master Erika", Type.LEAF, "Erika", "Leaf Specialist"),
+            ("Wind Guild Master Pidgeot Trainer", Type.WIND, "Sky Captain", "Wind Master"),
+            ("Esper Guild Master Alakazam Trainer", Type.ESPER, "Psyche", "Esper Master"),
+            ("Shadow Guild Master Gengar Trainer", Type.SHADOW, "Specter", "Shadow Master"),
+            ("Martial Guild Master Primeape Trainer", Type.MARTIAL, "Champion", "Martial Master"),
+            ("Stone Guild Master Rhydon Trainer", Type.STONE, "Tremor", "Stone Master"),
+        ]
+
+        if self.story_progress >= len(guilds):
+            print("\n" + "=" * 70)
+            print("CONGRATULATIONS!")
+            print("=" * 70)
+            print("""
+You have defeated all eight Guild Masters! The legendary Pokemon appears before you,
+drawn by your incredible strength and the bond you share with your team.
+
+The ancient legend speaks of a trainer worthy enough to stand with the legendary
+Pokemon. That trainer... is YOU!
+
+Your name will be remembered forever in the annals of Pokemon history!
+""")
+            print("=" * 70)
+            return
+
+        guild_name, guild_type, trainer_name, trainer_title = guilds[self.story_progress]
+
+        print("\n" + "=" * 70)
+        print(f"APPROACHING {guild_name.upper()}...")
+        print("=" * 70)
+        print(f"""
+You arrive at the magnificent {guild_type.value} Guild, a place of power and mystery.
+The Guild Master {trainer_name}, known as the {trainer_title}, stands before you.
+
+"{trainer_name}: Young trainer, you have come far. But can you overcome the
+mastery of {guild_type.value}-type Pokemon? Let us see your true strength!"
+""")
+        print("=" * 70)
+
+        input("\nPress Enter to begin the battle...")
+
+        # Let player choose which Pokemon to use
+        active_team = [p for p in self.player_team if not p.is_fainted()]
+        if not active_team:
+            print(f"\nAll your Pokemon are fainted! You have no Pokemon left.")
+            return
+
+        print(f"\nChoose your Pokemon for battle:")
+        max_hp_width = max(len(str(p.max_hp)) for p in active_team) if active_team else 3
+        for i, pokemon in enumerate(active_team, 1):
+            hp_bar_length = 15
+            hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
+            hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
+            current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+            max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
+            print(f"  {i}. {pokemon.pokemon_type.emoji}   {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {current_hp_str}/{max_hp_str}")
+
+        try:
+            choice = int(input("\nChoose Pokemon (number): ")) - 1
+            if choice < 0 or choice >= len(active_team):
+                print("Invalid choice! Using first Pokemon...")
+                choice = 0
+        except (ValueError, IndexError):
+            print("Invalid input! Using first Pokemon...")
+            choice = 0
+
+        player_pokemon = active_team[choice]
+
+        opponent_pokemon = PokemonFactory.create_trainer_pokemon(guild_type, self.player_level + 2)
+
+        self.current_battle = Battle(
+            player_pokemon,
+            opponent_pokemon,
+            player_name=self.player_name,
+            opponent_name=trainer_name,
+            max_turns=100,
+            player_team=self.player_team
+        )
+
+        print("\nWould you like to battle manually or automatically?")
+        print("1. Manual (choose moves each turn)")
+        print("2. Automatic (AI chooses moves)")
+
+        try:
+            choice = input("\nChoose (1-2): ").strip()
+            if choice == "2":
+                winner = self.current_battle.run_auto_battle()
+            else:
+                while not self.current_battle.game_over:
+                    if not self.current_battle.process_turn():
+                        break
+                winner = self.current_battle.winner
+
+            print(f"\nBattle Result: {winner}")
+
+            if winner == self.player_name:
+                print("\n" + "=" * 70)
+                print(f"VICTORY! You have defeated {trainer_name}!")
+                print("=" * 70)
+                print(f"""
+"{trainer_name}: Magnificent! Your Pokemon are truly exceptional. The {guild_type.value}
+Guild recognizes you as a worthy challenger. Take this proof of your victory."
+
+You receive the {guild_type.value} Guild Badge!
+Your team grew stronger through this battle!
+""")
+                print("=" * 70)
+
+                # Award cash for winning
+                cash_reward = 600
+                self.cash += cash_reward
+                print(f"  You received {cash_reward}¢!")
+
+                # Perform funeral for any fallen Pokemon
+                self.perform_funeral()
+
+                self.story_progress += 1
+                self.total_wins += 1
+                self.player_level += 1
+            else:
+                print("\n" + "=" * 70)
+                print(f"DEFEAT! {trainer_name} has bested you.")
+                print("=" * 70)
+                print(f"""
+"{trainer_name}: You fought well, but you still have much to learn.
+Return when you are stronger, and we shall battle again!"
+
+You may challenge the Guild Master again after training your Pokemon further.
+""")
+                print("=" * 70)
+
+                # Perform funeral for any fallen Pokemon
+                self.perform_funeral()
+
+        except KeyboardInterrupt:
+            print("\n\nBattle interrupted!")
+
+    def create_team(self):
+        print("\n" + "=" * 70)
+        print("CREATE YOUR POKEMON TEAM")
+        print("=" * 70)
+        print("""
+Every great trainer needs a team of Pokemon! You can have up to 6 Pokemon.
+Each type brings unique strengths to your team.
+
+Available Types:
+  🔥 Flame   💧 Aqua    🌿 Leaf     ✈️  Wind
+  💫 Esper   👻 Shadow  ✊ Martial  ⛰️  Stone
+""")
+
+        print("\nWhat is your trainer name, brave adventurer?")
+        name = input("Enter your name: ").strip()
+        if name:
+            self.player_name = name
+            print(f"\nWelcome, {self.player_name}! Your journey begins now!")
+
+        self.player_team = []
+        used_types = set()
+        for i in range(1, 7):
+            try:
+                choice = input(f"\nAdd Pokemon {i}? (y/n): ").strip().lower()
+                if choice == "y":
+                    # Keep generating until we get a type we haven't used yet
+                    pokemon = PokemonFactory.create_random_pokemon(self.player_level)
+                    while pokemon.pokemon_type in used_types:
+                        pokemon = PokemonFactory.create_random_pokemon(self.player_level)
+
+                    used_types.add(pokemon.pokemon_type)
+                    self.player_team.append(pokemon)
+                    print(f"✓ Caught: {pokemon}")
+                    print(f"  This {pokemon.pokemon_type.value}-type Pokemon will serve you well!")
+                elif choice == "n":
+                    if self.player_team:
+                        break
+                    else:
+                        print("You need at least 1 Pokemon to start your adventure!")
+                else:
+                    print("Invalid choice! Skipping...")
+            except KeyboardInterrupt:
+                break
+
+        if self.player_team:
+            print(f"\n✓ Your team is ready! {len(self.player_team)} Pokemon await your command!")
+            self.team_created = True
+        else:
+            print("\nNo Pokemon added. Generating a random team...")
+            self.player_team = [PokemonFactory.create_random_pokemon(self.player_level) for _ in range(3)]
+            self.team_created = True
+
+    def view_team(self):
+        print("\n" + "=" * 70)
+        print("YOUR POKEMON TEAM")
+        print("=" * 70)
+
+        if not self.player_team:
+            print("\nYou don't have any Pokemon yet! Create a team first.")
+            return
+
+        max_hp_width = max(len(str(p.max_hp)) for p in self.player_team) if self.player_team else 3
+
+        for i, pokemon in enumerate(self.player_team, 1):
+            hp_bar_length = 20
+            hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
+            hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
+
+            # Experience bar
+            exp_bar_length = 20
+            exp_percent = pokemon.experience / 100
+            exp_bar = "▓" * int(exp_bar_length * exp_percent) + "░" * (exp_bar_length - int(exp_bar_length * exp_percent))
+
+            status = "☠️ DEAD" if pokemon.is_fainted() else "✅ ALIVE"
+            current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+            max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
+            hp_str = f"{current_hp_str}/{max_hp_str}"
+
+            print(f"\n{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {pokemon.level:<3} | {status}")
+            print(f"   Type: {pokemon.pokemon_type.value:<10} | HP: [{hp_bar}] {hp_str}")
+            print(f"   EXP: [{exp_bar}] {pokemon.experience}/100")
+            print(f"   Moves: {', '.join(move.name for move in pokemon.moves)}")
+
+        print("\n" + "=" * 70)
+
+    def release_pokemon(self):
+        print("\n" + "=" * 70)
+        print("RELEASE A POKEMON")
+        print("=" * 70)
+
+        if not self.player_team:
+            print("\nYou don't have any Pokemon to release!")
+            return
+
+        if len(self.player_team) == 1:
+            print("\nYou only have one Pokemon! You cannot release your last Pokemon.")
+            return
+
+        print("\nWhich Pokemon do you want to release?")
+        print("(This action cannot be undone!)\n")
+
+        for i, pokemon in enumerate(self.player_team, 1):
+            status = "☠️ DEAD" if pokemon.is_fainted() else "✅ ALIVE"
+            level_str = str(pokemon.level).rjust(2)
+            print(f"{i}. {pokemon.pokemon_type.emoji} {pokemon.name:<15} | Lvl {level_str} | {status}")
+
+        try:
+            choice = input("\nChoose a Pokemon (number) or 0 to cancel: ").strip()
+            if choice == "0":
+                print("Release cancelled.")
+                return
+
+            pokemon_index = int(choice) - 1
+            if pokemon_index < 0 or pokemon_index >= len(self.player_team):
+                print("Invalid selection!")
+                return
+
+            released_pokemon = self.player_team[pokemon_index]
+            confirm = input(f"\nAre you sure you want to release {released_pokemon.name}? (y/n): ").strip().lower()
+
+            if confirm == "y":
+                self.player_team.pop(pokemon_index)
+                print(f"\n✓ {released_pokemon.pokemon_type.emoji} {released_pokemon.name} was released into the wild!")
+                print(f"✓ Your team now has {len(self.player_team)} Pokemon.")
+            else:
+                print("Release cancelled.")
+
+        except ValueError:
+            print("Invalid input! Please enter a number.")
+
+    def perform_funeral(self):
+        """Remove fainted Pokemon and hold a funeral ceremony"""
+        fainted_pokemon = [p for p in self.player_team if p.is_fainted()]
+
+        if not fainted_pokemon:
+            return
+
+        print("\n" + "=" * 70)
+        print("A MOMENT OF SILENCE")
+        print("=" * 70)
+
+        for pokemon in fainted_pokemon:
+            print(f"""
+{pokemon.pokemon_type.emoji}  {pokemon.name} has passed on...
+
+A brave and noble Pokemon. {pokemon.name} fought with all their strength,
+and their spirit will live on in your heart forever.
+
+May {pokemon.name} rest in peace. 🌹
+""")
+
+        # Remove fainted Pokemon from team
+        self.player_team = [p for p in self.player_team if not p.is_fainted()]
+        print(f"\n{len(fainted_pokemon)} Pokemon laid to rest.")
+        print("=" * 70)
+
+    def visit_pokecenter(self):
+        print("\n" + "=" * 70)
+        print("🏥 POKECENTER")
+        print("=" * 70)
+
+        if not self.player_team:
+            print("\nYou don't have any Pokemon!")
+            return
+
+        alive_pokemon = [p for p in self.player_team if not p.is_fainted()]
+        cost = len(alive_pokemon) * 100
+
+        print(f"\nWelcome to the PokéCenter!")
+        print(f"We have {len(alive_pokemon)} active Pokemon to heal.")
+        print(f"Healing cost: {cost}¢")
+
+        if self.cash < cost:
+            print(f"\nYou don't have enough cash!")
+            print(f"You have: {self.cash}¢")
+            print(f"You need: {cost}¢")
+            return
+
+        confirm = input(f"\nProceed with healing? (y/n): ").strip().lower()
+        if confirm == "y":
+            for pokemon in self.player_team:
+                pokemon.heal_full()
+            self.cash -= cost
+            print(f"\n✓ All Pokemon healed to full health!")
+            print(f"✓ Cost: {cost}¢")
+            print(f"✓ Remaining cash: {self.cash}¢")
+        else:
+            print("Healing cancelled.")
+
+    def start_battle(self):
+        if not self.player_team:
+            print("\nYou don't have any Pokemon! Create a team first.")
+            return
+
+        # Find non-fainted Pokemon
+        active_team = [p for p in self.player_team if not p.is_fainted()]
+
+        if not active_team:
+            print("\nAll your Pokemon are fainted! Create a new team first.")
+            return
+
+        print("\n" + "=" * 70)
+        print("WILD POKEMON BATTLE!")
+        print("=" * 70)
+
+        # Let player choose which Pokemon to use
+        print(f"\nChoose your Pokemon for battle:")
+        max_hp_width = max(len(str(p.max_hp)) for p in active_team) if active_team else 3
+        for i, pokemon in enumerate(active_team, 1):
+            hp_bar_length = 15
+            hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
+            hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
+            current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+            max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
+            print(f"  {i}. {pokemon.pokemon_type.emoji}   {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {current_hp_str}/{max_hp_str}")
+
+        try:
+            choice = int(input("\nChoose Pokemon (number): ")) - 1
+            if choice < 0 or choice >= len(active_team):
+                print("Invalid choice! Using first Pokemon...")
+                player_pokemon = active_team[0]
+            else:
+                player_pokemon = active_team[choice]
+        except ValueError:
+            print("Invalid input! Using first Pokemon...")
+            player_pokemon = active_team[0]
+
+        opponent_pokemon = PokemonFactory.create_random_pokemon(self.player_level)
+
+        print(f"""
+As you walk through the tall grass, a wild {opponent_pokemon.pokemon_type.value}-type Pokemon
+appears before you!
+
+{opponent_pokemon.name} emerges! What do you do?
+""")
+
+        self.current_battle = Battle(
+            player_pokemon,
+            opponent_pokemon,
+            player_name=self.player_name,
+            opponent_name="Wild " + opponent_pokemon.name,
+            max_turns=100,
+            player_team=self.player_team
+        )
+        self.current_battle.start()
+
+        print("\nWould you like to battle manually or automatically?")
+        print("1. Manual (choose moves each turn)")
+        print("2. Automatic (AI chooses moves)")
+
+        try:
+            choice = input("\nChoose (1-2): ").strip()
+            if choice == "2":
+                winner = self.current_battle.run_auto_battle()
+            else:
+                while not self.current_battle.game_over:
+                    if not self.current_battle.process_turn():
+                        break
+                winner = self.current_battle.winner
+
+            print(f"\nBattle Result: {winner}")
+            if winner == self.player_name:
+                self.total_wins += 1
+                print("\n✓ Victory! Your Pokemon gained valuable experience!")
+
+                # Award experience to all active Pokemon
+                for pokemon in self.player_team:
+                    if not pokemon.is_fainted():
+                        exp_gain = 25
+                        pokemon.gain_experience(exp_gain)
+                        print(f"  {pokemon.name} gained {exp_gain} EXP!")
+
+                # Award cash for winning
+                cash_reward = 100
+                self.cash += cash_reward
+                print(f"  You received {cash_reward}¢!")
+
+                # Perform funeral for any fallen Pokemon
+                self.perform_funeral()
+
+                # Offer to catch the opponent's Pokemon if player team isn't full
+                if len(self.player_team) < 6:
+                    if self.current_battle.offer_catch(self.current_battle.opponent_pokemon):
+                        self.player_team.append(self.current_battle.opponent_pokemon)
+                        print(f"\n{self.current_battle.opponent_pokemon.name} was added to your team!")
+                else:
+                    print(f"\n{self.current_battle.opponent_pokemon.name} wants to join your team,")
+                    print("but your team is full (6/6 Pokemon)!")
+            else:
+                # Perform funeral for any fallen Pokemon after defeat too
+                self.perform_funeral()
+
+        except KeyboardInterrupt:
+            print("\n\nBattle interrupted!")
+
+
+def main():
+    game = Game()
+
+    if os.path.exists(game.SAVE_FILE):
+        print("\n" + "=" * 70)
+        print("POKEMON QUEST")
+        print("=" * 70)
+        print("\nA save file was found!")
+        print("1. Continue your adventure")
+        print("2. Start a new game")
+
+        choice = input("\nChoose an option (1 or 2): ").strip()
+        if choice == "1":
+            if game.load_game():
+                print(f"\n✓ Welcome back, {game.player_name}!")
+                print(f"✓ Progress: {game.story_progress}/8 Guild Masters defeated")
+                print(f"✓ Team Size: {len(game.player_team)} Pokemon")
+                input("\nPress Enter to continue your journey...")
+                game.main_menu()
+                return
+            else:
+                print("\nFailed to load save file. Starting a new game...")
+        game.print_story_intro()
+        input("\nPress Enter to continue your journey...")
+        game.create_team()
+    else:
+        game.print_story_intro()
+        input("\nPress Enter to continue your journey...")
+        game.create_team()
+
+    game.main_menu()
+
+
+if __name__ == "__main__":
+    main()
