@@ -263,9 +263,9 @@ class Move:
         # Grass -> Water, Fire -> Grass, Water -> Ground, Flying -> Grass,
         # Ground -> Flying, Psychic -> Fighting, Fighting -> Ghost, Ghost -> Psychic
         effectiveness_chart = {
-            Type.FIRE: {Type.GRASS: 2.0, Type.WATER: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.FIRE: 1.0},
+            Type.FIRE: {Type.GRASS: 2.0, Type.WATER: 0.5, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.FIRE: 1.0},
             Type.WATER: {Type.GROUND: 2.0, Type.GRASS: 0.5, Type.FIRE: 1.0, Type.FLYING: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.WATER: 1.0},
-            Type.GRASS: {Type.WATER: 2.0, Type.FIRE: 0.5, Type.FLYING: 0.5, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.GRASS: 1.0},
+            Type.GRASS: {Type.WATER: 2.0, Type.FIRE: 0.5, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.GRASS: 1.0},
             Type.FLYING: {Type.GRASS: 2.0, Type.GROUND: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.FLYING: 1.0},
             Type.GROUND: {Type.FLYING: 2.0, Type.WATER: 0.5, Type.FIRE: 1.0, Type.GRASS: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.GROUND: 1.0},
             Type.PSYCHIC: {Type.FIGHTING: 2.0, Type.GHOST: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0},
