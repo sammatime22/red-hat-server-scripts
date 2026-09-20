@@ -633,12 +633,22 @@ class Battle:
 
         self.turn_count += 1
         print(f"\n--- Turn {self.turn_count}/{self.max_turns} ---")
-        
+
         # Decay status effects
         self._decay_status_effects()
 
+        # Check if player is charging (Dig/Fly)
+        if self.player_pokemon.charging:
+            charging_move_type = self.player_pokemon.charging
+            # Find the move that matches the charging type
+            player_move = None
+            for move in self.player_pokemon.moves:
+                if move.effect == charging_move_type:
+                    player_move = move
+                    break
+            print(f"\n{self.player_pokemon.name} is completing their {charging_move_type.capitalize()} attack!")
         # Check if player is disabled
-        if self.player_pokemon.disabled_turns > 0:
+        elif self.player_pokemon.disabled_turns > 0:
             print(f"\n{self.player_pokemon.name} is disabled and can't attack!")
             player_move = None
         else:
@@ -658,8 +668,8 @@ class Battle:
             else:
                 player_move = self.player_pokemon.moves[player_move_choice]
 
-        # Check if opponent is disabled
-        if self.opponent_pokemon.disabled_turns > 0:
+        # Check if opponent is disabled OR player is charging (can't attack while underground/in sky)
+        if self.opponent_pokemon.disabled_turns > 0 or self.player_pokemon.charging:
             opponent_move = None
         else:
             opponent_move = self.opponent_pokemon.get_random_move()
@@ -693,7 +703,10 @@ class Battle:
                         return False
                     return True
             else:
-                print(f"{self.opponent_pokemon.name} can't move!")
+                if self.player_pokemon.charging:
+                    print(f"{self.opponent_pokemon.name} can't hit {self.player_pokemon.name} while they're underground!" if self.player_pokemon.charging == "dig" else f"{self.opponent_pokemon.name} can't hit {self.player_pokemon.name} while they're in the sky!")
+                else:
+                    print(f"{self.opponent_pokemon.name} can't move!")
 
         else:
             if opponent_move:
@@ -711,7 +724,10 @@ class Battle:
                         return False
                     return True
             else:
-                print(f"{self.opponent_pokemon.name} can't move!")
+                if self.player_pokemon.charging:
+                    print(f"{self.opponent_pokemon.name} can't hit {self.player_pokemon.name} while they're underground!" if self.player_pokemon.charging == "dig" else f"{self.opponent_pokemon.name} can't hit {self.player_pokemon.name} while they're in the sky!")
+                else:
+                    print(f"{self.opponent_pokemon.name} can't move!")
 
             if player_move:
                 player_result = player_move.execute(self.player_pokemon, self.opponent_pokemon, player_is_attacker=True)
