@@ -194,11 +194,10 @@ class DuckAIClient:
             "x-ddg-journey-id": self._journey_id,
         }
 
-        # Use the stored Vqd-Hash if available
+        # Only include X-Vqd-Hash-1 if we have a real value from the server
+        # Don't send "unknown" as the server rejects requests with invalid hash values
         if self._vqd_hash:
             headers["X-Vqd-Hash-1"] = self._vqd_hash
-        else:
-            headers["X-Vqd-Hash-1"] = "unknown"
 
         return headers
 
