@@ -340,7 +340,7 @@ class PokemonFactory:
     ]
 
     WATER_MOVES = [
-        Move("Water Gun", 40, 1.0, Type.AQUA, "A water spray attack"),
+        Move("Aqua Gun", 40, 1.0, Type.AQUA, "A water spray attack"),
         Move("Rain Dance", 0, 1.0, Type.AQUA, "Brings rain for 5 turns", effect="rain_dance"),
     ]
 
@@ -355,12 +355,12 @@ class PokemonFactory:
     ]
 
     PSYCHIC_MOVES = [
-        Move("Confusion", 40, 1.0, Type.ESPER, "Psychic wave attack"),
+        Move("Confusion", 40, 1.0, Type.ESPER, "Esper wave attack"),
         Move("Foresight", 0, 1.0, Type.ESPER, "Guess 1-3 to block damage", effect="foresight"),
     ]
 
     GHOST_MOVES = [
-        Move("Shadow Ball", 40, 1.0, Type.SHADOW, "Ghostly shadow attack"),
+        Move("Shadow Ball", 40, 1.0, Type.SHADOW, "Shadowly shadow attack"),
         Move("Hex", 0, 1.0, Type.SHADOW, "Haunts opponent for 2 turns", effect="hex"),
     ]
 
@@ -458,11 +458,11 @@ class TrainerFactory:
         ),
         Trainer(
             name="Misty",
-            title="Water Master",
+            title="Aqua Master",
             team=[],
             dialogue={
-                "intro": "Hi there! I'm Misty, a Water-type master! Let's see your Pokemon!",
-                "victory": "My Water Pokemon are unbeatable! You need more training!",
+                "intro": "Hi there! I'm Misty, a Aqua-type master! Let's see your Pokemon!",
+                "victory": "My Aqua Pokemon are unbeatable! You need more training!",
                 "defeat": "That was amazing! Your bond with your Pokemon is strong!",
                 "commentary": "Come on, you can do better than that!",
             }
@@ -480,7 +480,7 @@ class TrainerFactory:
         ),
         Trainer(
             name="Erika",
-            title="Grass Specialist",
+            title="Leaf Specialist",
             team=[],
             dialogue={
                 "intro": "Welcome. I am Erika, keeper of the grass garden.",
@@ -491,10 +491,10 @@ class TrainerFactory:
         ),
         Trainer(
             name="Blaine",
-            title="Fire Master",
+            title="Flame Master",
             team=[],
             dialogue={
-                "intro": "Heh heh heh! I'm Blaine, Master of Fire! Feel the heat!",
+                "intro": "Heh heh heh! I'm Blaine, Master of Flame! Feel the heat!",
                 "victory": "Volcanoes are no match for the strength of my flames!",
                 "defeat": "Hot diggity! What an intense battle!",
                 "commentary": "This is getting hotter!",
@@ -1009,14 +1009,14 @@ The legend of your adventures will be remembered! Until next time, trainer!
 
     def view_guild_status(self):
         guilds = [
-            ("Fire Guild", "Masters of Passion and Fury"),
-            ("Water Guild", "Keepers of the Tides"),
-            ("Grass Guild", "Guardians of Life"),
-            ("Flying Guild", "Riders of the Winds"),
-            ("Psychic Guild", "Seers of the Mind"),
-            ("Ghost Guild", "Whispers from Beyond"),
-            ("Fighting Guild", "Champions of Combat"),
-            ("Ground Guild", "Shakers of the Earth"),
+            ("Flame Guild", "Masters of Passion and Fury"),
+            ("Aqua Guild", "Keepers of the Tides"),
+            ("Leaf Guild", "Guardians of Life"),
+            ("Wind Guild", "Riders of the Winds"),
+            ("Esper Guild", "Seers of the Mind"),
+            ("Shadow Guild", "Whispers from Beyond"),
+            ("Martial Guild", "Champions of Combat"),
+            ("Stone Guild", "Shakers of the Earth"),
         ]
 
         print("\n" + "=" * 70)
@@ -1034,14 +1034,14 @@ The legend of your adventures will be remembered! Until next time, trainer!
             return
 
         guilds = [
-            ("Fire Guild Master Blaine", Type.FLAME, "Blaine", "Fire Master"),
-            ("Water Guild Master Misty", Type.AQUA, "Misty", "Water Master"),
-            ("Grass Guild Master Erika", Type.LEAF, "Erika", "Grass Specialist"),
-            ("Flying Guild Master Pidgeot Trainer", Type.WIND, "Sky Captain", "Flying Master"),
-            ("Psychic Guild Master Alakazam Trainer", Type.ESPER, "Psyche", "Psychic Master"),
-            ("Ghost Guild Master Gengar Trainer", Type.SHADOW, "Specter", "Ghost Master"),
-            ("Fighting Guild Master Primeape Trainer", Type.MARTIAL, "Champion", "Fighting Master"),
-            ("Ground Guild Master Rhydon Trainer", Type.STONE, "Tremor", "Ground Master"),
+            ("Flame Guild Master Blaine", Type.FLAME, "Blaine", "Flame Master"),
+            ("Aqua Guild Master Misty", Type.AQUA, "Misty", "Aqua Master"),
+            ("Leaf Guild Master Erika", Type.LEAF, "Erika", "Leaf Specialist"),
+            ("Wind Guild Master Pidgeot Trainer", Type.WIND, "Sky Captain", "Wind Master"),
+            ("Esper Guild Master Alakazam Trainer", Type.ESPER, "Psyche", "Esper Master"),
+            ("Shadow Guild Master Gengar Trainer", Type.SHADOW, "Specter", "Shadow Master"),
+            ("Martial Guild Master Primeape Trainer", Type.MARTIAL, "Champion", "Martial Master"),
+            ("Stone Guild Master Rhydon Trainer", Type.STONE, "Tremor", "Stone Master"),
         ]
 
         if self.story_progress >= len(guilds):
@@ -1154,8 +1154,8 @@ Every great trainer needs a team of Pokemon! You can have up to 6 Pokemon.
 Each type brings unique strengths to your team.
 
 Available Types:
-  🔥 Fire    💧 Water    🌿 Grass    ✈️  Flying
-  💫 Psychic 👻 Ghost    ✊ Fighting ⛰️  Ground
+  🔥 Flame   💧 Aqua    🌿 Leaf     ✈️  Wind
+  💫 Esper   👻 Shadow  ✊ Martial  ⛰️  Stone
 """)
 
         print("\nWhat is your trainer name, brave adventurer?")
