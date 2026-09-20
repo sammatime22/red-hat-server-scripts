@@ -1092,10 +1092,32 @@ mastery of {guild_type.value}-type Pokemon? Let us see your true strength!"
 
         input("\nPress Enter to begin the battle...")
 
-        player_pokemon = self.player_team[0]
-        if player_pokemon.is_fainted():
-            print(f"\n{player_pokemon.name} is fainted! You have no Pokemon left.")
+        # Let player choose which Pokemon to use
+        active_team = [p for p in self.player_team if not p.is_fainted()]
+        if not active_team:
+            print(f"\nAll your Pokemon are fainted! You have no Pokemon left.")
             return
+
+        print(f"\nChoose your Pokemon for battle:")
+        max_hp_width = max(len(str(p.max_hp)) for p in active_team) if active_team else 3
+        for i, pokemon in enumerate(active_team, 1):
+            hp_bar_length = 15
+            hp_percent = max(0, pokemon.current_hp) / pokemon.max_hp
+            hp_bar = "█" * int(hp_bar_length * hp_percent) + "░" * (hp_bar_length - int(hp_bar_length * hp_percent))
+            current_hp_str = str(max(0, pokemon.current_hp)).rjust(max_hp_width)
+            max_hp_str = str(pokemon.max_hp).rjust(max_hp_width)
+            print(f"  {i}. {pokemon.pokemon_type.emoji}   {pokemon.name:<15} Lvl {pokemon.level} [{hp_bar}] {current_hp_str}/{max_hp_str}")
+
+        try:
+            choice = int(input("\nChoose Pokemon (number): ")) - 1
+            if choice < 0 or choice >= len(active_team):
+                print("Invalid choice! Using first Pokemon...")
+                choice = 0
+        except (ValueError, IndexError):
+            print("Invalid input! Using first Pokemon...")
+            choice = 0
+
+        player_pokemon = active_team[choice]
 
         opponent_pokemon = PokemonFactory.create_trainer_pokemon(guild_type, self.player_level + 2)
 
