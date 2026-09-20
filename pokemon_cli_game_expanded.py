@@ -767,14 +767,17 @@ class Battle:
         """Offer player a chance to catch the defeated Pokemon"""
         print(f"\n{pokemon_to_catch.name} {pokemon_to_catch.pokemon_type.emoji} has been defeated!")
         print(f"Would you like to catch this {pokemon_to_catch.pokemon_type.value}-type Pokemon?")
-        print("\nI'm thinking of a number between 1 and 5...")
+
+        # Use party size as max number
+        party_size = len(self.player_team)
+        print(f"\nI'm thinking of a number between 1 and {party_size}...")
         print("If you guess correctly, you can add it to your team!")
 
-        secret_number = random.randint(1, 5)
+        secret_number = random.randint(1, party_size)
 
         try:
-            guess = int(input("\nGuess a number (1-5): "))
-            if 1 <= guess <= 5:
+            guess = int(input(f"\nGuess a number (1-{party_size}): "))
+            if 1 <= guess <= party_size:
                 if guess == secret_number:
                     print(f"\n🎉 Correct! The number was {secret_number}!")
                     print(f"You caught {pokemon_to_catch.name} {pokemon_to_catch.pokemon_type.emoji}!")
@@ -785,7 +788,7 @@ class Battle:
                     print(f"{pokemon_to_catch.name} got away!")
                     return False
             else:
-                print("Invalid number! The Pokemon got away!")
+                print(f"Invalid number! The Pokemon got away!")
                 return False
         except (ValueError, KeyboardInterrupt):
             print("Invalid input! The Pokemon got away!")
