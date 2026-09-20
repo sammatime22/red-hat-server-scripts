@@ -253,26 +253,9 @@ class DuckAIClient:
 
         payload = {
             "model": self.model,
-            "metadata": {
-                "toolChoice": {
-                    "NewsSearch": False,
-                    "VideosSearch": False,
-                    "LocalSearch": False,
-                    "WeatherForecast": False
-                }
-            },
             "messages": [
                 {"role": "user", "content": question}
-            ],
-            "canUseTools": True,
-            "reasoningEffort": "low",
-            "canUseApproxLocation": None,
-            "canDelegateImageGeneration": None,
-            "durableStream": {
-                "messageId": self._generate_uuid(),
-                "conversationId": self._generate_uuid(),
-                "publicKey": self._generate_rsa_public_key()
-            }
+            ]
         }
 
         if self.debug:
