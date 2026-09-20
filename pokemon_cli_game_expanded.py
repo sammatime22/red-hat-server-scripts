@@ -1162,6 +1162,11 @@ Your team grew stronger through this battle!
 """)
                 print("=" * 70)
 
+                # Award cash for winning
+                cash_reward = 600
+                self.cash += cash_reward
+                print(f"  You received {cash_reward}¢!")
+
                 # Perform funeral for any fallen Pokemon
                 self.perform_funeral()
 
