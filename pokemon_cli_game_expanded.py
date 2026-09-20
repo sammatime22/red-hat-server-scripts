@@ -910,9 +910,9 @@ The eight types you will encounter:
 TYPE ADVANTAGES:
 Every type has its strengths and weaknesses. Master these matchups!
 
-  🔥 FIRE is strong against Grass
+  🔥 FIRE is strong against Grass | weak to Water
   💧 WATER is strong against Ground | weak to Grass
-  🌿 GRASS is strong against Water | weak to Fire & Flying
+  🌿 GRASS is strong against Water | weak to Fire
   ✈️  FLYING is strong against Grass | weak to Ground
   ⛰️  GROUND is strong against Flying | weak to Water
   💫 PSYCHIC is strong against Fighting | weak to Ghost
