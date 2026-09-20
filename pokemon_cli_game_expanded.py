@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Pokemon CLI Game - Expanded Gold/Silver Edition with Full Storyline
-Features 8 Pokemon types (Fire, Water, Grass, Flying, Psychic, Ghost, Fighting, Ground)
+Features 8 Pokemon types (Flame, Aqua, Leaf, Wind, Esper, Shadow, Martial, Stone)
 with full narrative campaign, NPC trainers, and 100-turn battles.
 """
 
@@ -16,26 +16,26 @@ from enum import Enum
 
 
 class Type(Enum):
-    FIRE = "Fire"
-    WATER = "Water"
-    GRASS = "Grass"
-    FLYING = "Flying"
-    PSYCHIC = "Psychic"
-    GHOST = "Ghost"
-    FIGHTING = "Fighting"
-    GROUND = "Ground"
+    FLAME = "Flame"
+    AQUA = "Aqua"
+    LEAF = "Leaf"
+    WIND = "Wind"
+    ESPER = "Esper"
+    SHADOW = "Shadow"
+    MARTIAL = "Martial"
+    STONE = "Stone"
 
     @property
     def emoji(self) -> str:
         emoji_map = {
-            Type.FIRE: "🔥",
-            Type.WATER: "💧",
-            Type.GRASS: "🌿",
-            Type.FLYING: "✈️ ",
-            Type.PSYCHIC: "💫",
-            Type.GHOST: "👻",
-            Type.FIGHTING: "✊",
-            Type.GROUND: "⛰️ ",
+            Type.FLAME: "🔥",
+            Type.AQUA: "💧",
+            Type.LEAF: "🌿",
+            Type.WIND: "✈️ ",
+            Type.ESPER: "💫",
+            Type.SHADOW: "👻",
+            Type.MARTIAL: "✊",
+            Type.STONE: "⛰️ ",
         }
         return emoji_map.get(self, "⚪")
 
@@ -115,7 +115,7 @@ class Move:
             return {
                 "hit": True,
                 "damage": 0,
-                "message": f"The sun grew harsh! Fire attacks are boosted, Water attacks weakened for 5 turns! ☀️",
+                "message": f"The sun grew harsh! Flame attacks are boosted, Aqua attacks weakened for 5 turns! ☀️",
                 "is_protect": False,
                 "defender_hp": defender.current_hp,
             }
@@ -126,7 +126,7 @@ class Move:
             return {
                 "hit": True,
                 "damage": 0,
-                "message": f"Rain began to fall! Water attacks are boosted, Fire attacks weakened for 5 turns! 🌧️",
+                "message": f"Rain began to fall! Aqua attacks are boosted, Flame attacks weakened for 5 turns! 🌧️",
                 "is_protect": False,
                 "defender_hp": defender.current_hp,
             }
@@ -245,14 +245,14 @@ class Move:
         # Apply weather effects
         weather_mult = 1.0
         if attacker.weather_effect == "sun":
-            if self.pokemon_type == Type.FIRE:
+            if self.pokemon_type == Type.FLAME:
                 weather_mult = 2.0
-            elif self.pokemon_type == Type.WATER:
+            elif self.pokemon_type == Type.AQUA:
                 weather_mult = 0.5
         elif attacker.weather_effect == "rain":
-            if self.pokemon_type == Type.WATER:
+            if self.pokemon_type == Type.AQUA:
                 weather_mult = 2.0
-            elif self.pokemon_type == Type.FIRE:
+            elif self.pokemon_type == Type.FLAME:
                 weather_mult = 0.5
         
         damage = int(base_damage * stab_bonus * type_advantage * critical * weather_mult * 0.85)
@@ -260,17 +260,17 @@ class Move:
 
     def _get_type_effectiveness(self, defender_type: Type) -> float:
         # Type chart with directional advantages:
-        # Grass -> Water, Fire -> Grass, Water -> Ground, Flying -> Grass,
-        # Ground -> Flying, Psychic -> Fighting, Fighting -> Ghost, Ghost -> Psychic
+        # Leaf -> Aqua, Flame -> Leaf, Aqua -> Stone, Wind -> Leaf,
+        # Stone -> Wind, Esper -> Martial, Martial -> Shadow, Shadow -> Esper
         effectiveness_chart = {
-            Type.FIRE: {Type.GRASS: 2.0, Type.WATER: 0.5, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.FIRE: 1.0},
-            Type.WATER: {Type.GROUND: 2.0, Type.GRASS: 0.5, Type.FIRE: 1.0, Type.FLYING: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.WATER: 1.0},
-            Type.GRASS: {Type.WATER: 2.0, Type.FIRE: 0.5, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.GRASS: 1.0},
-            Type.FLYING: {Type.GRASS: 2.0, Type.GROUND: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.FLYING: 1.0},
-            Type.GROUND: {Type.FLYING: 2.0, Type.WATER: 0.5, Type.FIRE: 1.0, Type.GRASS: 1.0, Type.PSYCHIC: 1.0, Type.GHOST: 1.0, Type.FIGHTING: 1.0, Type.GROUND: 1.0},
-            Type.PSYCHIC: {Type.FIGHTING: 2.0, Type.GHOST: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.PSYCHIC: 1.0},
-            Type.FIGHTING: {Type.GHOST: 2.0, Type.PSYCHIC: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.FIGHTING: 1.0},
-            Type.GHOST: {Type.PSYCHIC: 2.0, Type.FIGHTING: 0.5, Type.FIRE: 1.0, Type.WATER: 1.0, Type.GRASS: 1.0, Type.FLYING: 1.0, Type.GROUND: 1.0, Type.GHOST: 1.0},
+            Type.FLAME: {Type.LEAF: 2.0, Type.AQUA: 0.5, Type.WIND: 1.0, Type.STONE: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.FLAME: 1.0},
+            Type.AQUA: {Type.STONE: 2.0, Type.LEAF: 0.5, Type.FLAME: 1.0, Type.WIND: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.AQUA: 1.0},
+            Type.LEAF: {Type.AQUA: 2.0, Type.FLAME: 0.5, Type.WIND: 1.0, Type.STONE: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.LEAF: 1.0},
+            Type.WIND: {Type.LEAF: 2.0, Type.STONE: 0.5, Type.FLAME: 1.0, Type.AQUA: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.WIND: 1.0},
+            Type.STONE: {Type.WIND: 2.0, Type.AQUA: 0.5, Type.FLAME: 1.0, Type.LEAF: 1.0, Type.ESPER: 1.0, Type.SHADOW: 1.0, Type.MARTIAL: 1.0, Type.STONE: 1.0},
+            Type.ESPER: {Type.MARTIAL: 2.0, Type.SHADOW: 0.5, Type.FLAME: 1.0, Type.AQUA: 1.0, Type.LEAF: 1.0, Type.WIND: 1.0, Type.STONE: 1.0, Type.ESPER: 1.0},
+            Type.MARTIAL: {Type.SHADOW: 2.0, Type.ESPER: 0.5, Type.FLAME: 1.0, Type.AQUA: 1.0, Type.LEAF: 1.0, Type.WIND: 1.0, Type.STONE: 1.0, Type.MARTIAL: 1.0},
+            Type.SHADOW: {Type.ESPER: 2.0, Type.MARTIAL: 0.5, Type.FLAME: 1.0, Type.AQUA: 1.0, Type.LEAF: 1.0, Type.WIND: 1.0, Type.STONE: 1.0, Type.SHADOW: 1.0},
         }
         return effectiveness_chart.get(self.pokemon_type, {}).get(defender_type, 1.0)
 
@@ -335,43 +335,43 @@ class Pokemon:
 
 class PokemonFactory:
     FIRE_MOVES = [
-        Move("Ember", 40, 1.0, Type.FIRE, "A small flame attack"),
-        Move("Sunny Day", 0, 1.0, Type.FIRE, "Raises sun for 5 turns", effect="sunny_day"),
+        Move("Ember", 40, 1.0, Type.FLAME, "A small flame attack"),
+        Move("Sunny Day", 0, 1.0, Type.FLAME, "Raises sun for 5 turns", effect="sunny_day"),
     ]
 
     WATER_MOVES = [
-        Move("Water Gun", 40, 1.0, Type.WATER, "A water spray attack"),
-        Move("Rain Dance", 0, 1.0, Type.WATER, "Brings rain for 5 turns", effect="rain_dance"),
+        Move("Water Gun", 40, 1.0, Type.AQUA, "A water spray attack"),
+        Move("Rain Dance", 0, 1.0, Type.AQUA, "Brings rain for 5 turns", effect="rain_dance"),
     ]
 
     GRASS_MOVES = [
-        Move("Razor Leaf", 40, 1.0, Type.GRASS, "Cutting leaves attack"),
-        Move("Absorb", 20, 1.0, Type.GRASS, "Absorbs health from opponent", effect="absorb"),
+        Move("Razor Leaf", 40, 1.0, Type.LEAF, "Cutting leaves attack"),
+        Move("Absorb", 20, 1.0, Type.LEAF, "Absorbs health from opponent", effect="absorb"),
     ]
 
     FLYING_MOVES = [
-        Move("Peck", 40, 1.0, Type.FLYING, "Sharp pecking attack"),
-        Move("Fly", 60, 1.0, Type.FLYING, "Fly away and strike next turn", effect="fly"),
+        Move("Peck", 40, 1.0, Type.WIND, "Sharp pecking attack"),
+        Move("Fly", 60, 1.0, Type.WIND, "Fly away and strike next turn", effect="fly"),
     ]
 
     PSYCHIC_MOVES = [
-        Move("Confusion", 40, 1.0, Type.PSYCHIC, "Psychic wave attack"),
-        Move("Foresight", 0, 1.0, Type.PSYCHIC, "Guess 1-3 to block damage", effect="foresight"),
+        Move("Confusion", 40, 1.0, Type.ESPER, "Psychic wave attack"),
+        Move("Foresight", 0, 1.0, Type.ESPER, "Guess 1-3 to block damage", effect="foresight"),
     ]
 
     GHOST_MOVES = [
-        Move("Shadow Ball", 40, 1.0, Type.GHOST, "Ghostly shadow attack"),
-        Move("Hex", 0, 1.0, Type.GHOST, "Haunts opponent for 2 turns", effect="hex"),
+        Move("Shadow Ball", 40, 1.0, Type.SHADOW, "Ghostly shadow attack"),
+        Move("Hex", 0, 1.0, Type.SHADOW, "Haunts opponent for 2 turns", effect="hex"),
     ]
 
     FIGHTING_MOVES = [
-        Move("Karate Chop", 40, 1.0, Type.FIGHTING, "Martial arts chop"),
-        Move("Vital Throw", 40, 1.0, Type.FIGHTING, "Throws opponent to bench", effect="vital_throw"),
+        Move("Karate Chop", 40, 1.0, Type.MARTIAL, "Martial arts chop"),
+        Move("Vital Throw", 40, 1.0, Type.MARTIAL, "Throws opponent to bench", effect="vital_throw"),
     ]
 
     GROUND_MOVES = [
-        Move("Mud Slap", 40, 1.0, Type.GROUND, "Mud slapping attack"),
-        Move("Dig", 60, 1.0, Type.GROUND, "Burrow and strike next turn", effect="dig"),
+        Move("Mud Slap", 40, 1.0, Type.STONE, "Mud slapping attack"),
+        Move("Dig", 60, 1.0, Type.STONE, "Burrow and strike next turn", effect="dig"),
     ]
 
     FIRE_POKEMON = [("Cyndaquil", 39), ("Flareon", 42), ("Ponyta", 35), ("Vulpix", 33), ("Growlithe", 36)]
@@ -388,14 +388,14 @@ class PokemonFactory:
         pokemon_type = random.choice(list(Type))
 
         type_map = {
-            Type.FIRE: (cls.FIRE_POKEMON, cls.FIRE_MOVES),
-            Type.WATER: (cls.WATER_POKEMON, cls.WATER_MOVES),
-            Type.GRASS: (cls.GRASS_POKEMON, cls.GRASS_MOVES),
-            Type.FLYING: (cls.FLYING_POKEMON, cls.FLYING_MOVES),
-            Type.PSYCHIC: (cls.PSYCHIC_POKEMON, cls.PSYCHIC_MOVES),
-            Type.GHOST: (cls.GHOST_POKEMON, cls.GHOST_MOVES),
-            Type.FIGHTING: (cls.FIGHTING_POKEMON, cls.FIGHTING_MOVES),
-            Type.GROUND: (cls.GROUND_POKEMON, cls.GROUND_MOVES),
+            Type.FLAME: (cls.FIRE_POKEMON, cls.FIRE_MOVES),
+            Type.AQUA: (cls.WATER_POKEMON, cls.WATER_MOVES),
+            Type.LEAF: (cls.GRASS_POKEMON, cls.GRASS_MOVES),
+            Type.WIND: (cls.FLYING_POKEMON, cls.FLYING_MOVES),
+            Type.ESPER: (cls.PSYCHIC_POKEMON, cls.PSYCHIC_MOVES),
+            Type.SHADOW: (cls.GHOST_POKEMON, cls.GHOST_MOVES),
+            Type.MARTIAL: (cls.FIGHTING_POKEMON, cls.FIGHTING_MOVES),
+            Type.STONE: (cls.GROUND_POKEMON, cls.GROUND_MOVES),
         }
 
         pokemon_list, move_list = type_map[pokemon_type]
@@ -408,14 +408,14 @@ class PokemonFactory:
     @classmethod
     def create_trainer_pokemon(cls, pokemon_type: Type, level: int = 10) -> Pokemon:
         type_map = {
-            Type.FIRE: (cls.FIRE_POKEMON, cls.FIRE_MOVES),
-            Type.WATER: (cls.WATER_POKEMON, cls.WATER_MOVES),
-            Type.GRASS: (cls.GRASS_POKEMON, cls.GRASS_MOVES),
-            Type.FLYING: (cls.FLYING_POKEMON, cls.FLYING_MOVES),
-            Type.PSYCHIC: (cls.PSYCHIC_POKEMON, cls.PSYCHIC_MOVES),
-            Type.GHOST: (cls.GHOST_POKEMON, cls.GHOST_MOVES),
-            Type.FIGHTING: (cls.FIGHTING_POKEMON, cls.FIGHTING_MOVES),
-            Type.GROUND: (cls.GROUND_POKEMON, cls.GROUND_MOVES),
+            Type.FLAME: (cls.FIRE_POKEMON, cls.FIRE_MOVES),
+            Type.AQUA: (cls.WATER_POKEMON, cls.WATER_MOVES),
+            Type.LEAF: (cls.GRASS_POKEMON, cls.GRASS_MOVES),
+            Type.WIND: (cls.FLYING_POKEMON, cls.FLYING_MOVES),
+            Type.ESPER: (cls.PSYCHIC_POKEMON, cls.PSYCHIC_MOVES),
+            Type.SHADOW: (cls.GHOST_POKEMON, cls.GHOST_MOVES),
+            Type.MARTIAL: (cls.FIGHTING_POKEMON, cls.FIGHTING_MOVES),
+            Type.STONE: (cls.GROUND_POKEMON, cls.GROUND_MOVES),
         }
 
         pokemon_list, move_list = type_map[pokemon_type]
@@ -898,26 +898,26 @@ Pokemon type. Prove your worth, and you may uncover the legendary Pokemon that
 has been hidden for centuries.
 
 The eight types you will encounter:
-  🔥 FIRE - Masters of Passion and Fury
-  💧 WATER - Keepers of the Tides and Currents
-  🌿 GRASS - Guardians of Life and Growth
-  ✈️  FLYING - Riders of the Winds
-  💫 PSYCHIC - Seers of the Mind
-  👻 GHOST - Whispers from the Other Side
-  ✊ FIGHTING - Champions of Combat
-  ⛰️  GROUND - Shakers of the Earth
+  🔥 FLAME - Masters of Passion and Fury
+  💧 AQUA - Keepers of the Tides and Currents
+  🌿 LEAF - Guardians of Life and Growth
+  ✈️  WIND - Riders of the Winds
+  💫 ESPER - Seers of the Mind
+  👻 SHADOW - Whispers from the Other Side
+  ✊ MARTIAL - Champions of Combat
+  ⛰️  STONE - Shakers of the Earth
 
 TYPE ADVANTAGES:
 Every type has its strengths and weaknesses. Master these matchups!
 
-  🔥 FIRE is strong against Grass | weak to Water
-  💧 WATER is strong against Ground | weak to Grass
-  🌿 GRASS is strong against Water | weak to Fire
-  ✈️  FLYING is strong against Grass | weak to Ground
-  ⛰️  GROUND is strong against Flying | weak to Water
-  💫 PSYCHIC is strong against Fighting | weak to Ghost
-  ✊ FIGHTING is strong against Ghost | weak to Psychic
-  👻 GHOST is strong against Psychic | weak to Fighting
+  🔥 FLAME is strong against Leaf | weak to Aqua
+  💧 AQUA is strong against Stone | weak to Leaf
+  🌿 LEAF is strong against Aqua | weak to Flame
+  ✈️  WIND is strong against Leaf | weak to Stone
+  ⛰️  STONE is strong against Wind | weak to Aqua
+  💫 ESPER is strong against Martial | weak to Shadow
+  ✊ MARTIAL is strong against Shadow | weak to Esper
+  👻 SHADOW is strong against Esper | weak to Martial
 
 Study the type matchups and build a diverse team for victory!
 
@@ -1034,14 +1034,14 @@ The legend of your adventures will be remembered! Until next time, trainer!
             return
 
         guilds = [
-            ("Fire Guild Master Blaine", Type.FIRE, "Blaine", "Fire Master"),
-            ("Water Guild Master Misty", Type.WATER, "Misty", "Water Master"),
-            ("Grass Guild Master Erika", Type.GRASS, "Erika", "Grass Specialist"),
-            ("Flying Guild Master Pidgeot Trainer", Type.FLYING, "Sky Captain", "Flying Master"),
-            ("Psychic Guild Master Alakazam Trainer", Type.PSYCHIC, "Psyche", "Psychic Master"),
-            ("Ghost Guild Master Gengar Trainer", Type.GHOST, "Specter", "Ghost Master"),
-            ("Fighting Guild Master Primeape Trainer", Type.FIGHTING, "Champion", "Fighting Master"),
-            ("Ground Guild Master Rhydon Trainer", Type.GROUND, "Tremor", "Ground Master"),
+            ("Fire Guild Master Blaine", Type.FLAME, "Blaine", "Fire Master"),
+            ("Water Guild Master Misty", Type.AQUA, "Misty", "Water Master"),
+            ("Grass Guild Master Erika", Type.LEAF, "Erika", "Grass Specialist"),
+            ("Flying Guild Master Pidgeot Trainer", Type.WIND, "Sky Captain", "Flying Master"),
+            ("Psychic Guild Master Alakazam Trainer", Type.ESPER, "Psyche", "Psychic Master"),
+            ("Ghost Guild Master Gengar Trainer", Type.SHADOW, "Specter", "Ghost Master"),
+            ("Fighting Guild Master Primeape Trainer", Type.MARTIAL, "Champion", "Fighting Master"),
+            ("Ground Guild Master Rhydon Trainer", Type.STONE, "Tremor", "Ground Master"),
         ]
 
         if self.story_progress >= len(guilds):
